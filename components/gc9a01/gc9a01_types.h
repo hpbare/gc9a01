@@ -67,9 +67,7 @@ typedef struct {
 
 typedef struct {
     GC9A01_Hal *hal;
-    size_t num_trans_inflight;  /* đếm transaction đang treo. */
-    bool cs_is_active;
-    bool bus_is_acquired;
+    size_t num_trans_inflight;
 
     uint8_t madctl_val;         // save current value of LCD_CMD_MADCTL register
     uint8_t colmod_val;         // save current value of LCD_CMD_COLMOD register

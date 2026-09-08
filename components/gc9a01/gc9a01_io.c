@@ -19,7 +19,8 @@ GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
     bool spi_bus_control = (hal->spi_acquire_bus) && (hal->spi_release_bus);
-    bool async_capable = (hal->spi_transmit_async && hal->spi_get_trans_result);
+    bool bus_acquired = false;
+    bool cs_active = false;
     uint8_t cmd_u8 = (uint8_t)cmd;
 
     /* PHASE 1: REFRESH */
@@ -29,30 +30,18 @@ GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
             panel->num_trans_inflight--;
             if(drain_s != GC9A01_OK && s == GC9A01_OK) { s = drain_s; }
         }
-
-        if(panel->cs_is_active){
-            hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
-            panel->cs_is_active = false;
-        }
-
-        if(panel->bus_is_acquired && spi_bus_control){
-            hal->spi_release_bus(hal->spi_ctx);
-            panel->bus_is_acquired = false;
-        }
         if(s != GC9A01_OK) { return s; }
     }
     
     /* PHASE 2: ACQUIRE BUS, ACTIVE CS */
-    if(spi_bus_control && !(panel->bus_is_acquired)){
+    if(spi_bus_control/*  && !(panel->bus_is_acquired) */){
         s = hal->spi_acquire_bus(hal->spi_ctx, -1);
         if (s != GC9A01_OK) { return s; }
-        panel->bus_is_acquired = true;
+        bus_acquired = true;
     }
-    if(!(panel->cs_is_active)){
-        s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
-        if(s != GC9A01_OK) { goto release; }
-        panel->cs_is_active = true;
-    }
+    s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
+    if(s != GC9A01_OK) { goto release; }
+    cs_active = true;
 
     /* PHASE 3: SEND CMD - POLLING */
     if(cmd_u8) {
@@ -70,10 +59,14 @@ GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
     }
 
 release:
-    if(spi_bus_control){
-        s = hal->spi_release_bus(hal->spi_ctx);
+    if(cs_active){
+        hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
     }
-    panel->bus_is_acquired = false;
+
+    if(bus_acquired){
+        GC9A01_Status release_s = hal->spi_release_bus(hal->spi_ctx);
+        if(s == GC9A01_OK) { return release_s; }
+    }
     return s;
 }
 
@@ -90,39 +83,29 @@ GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
     GC9A01_Hal *hal = panel->hal;
     bool spi_bus_control = (hal->spi_acquire_bus) && (hal->spi_release_bus);
     bool async_capable = (hal->spi_transmit_async && hal->spi_get_trans_result);
+    bool bus_acquired = false;
+    bool cs_active = false;
     uint8_t cmd_u8 = (uint8_t)cmd;
 
-    /* PHASE 1: REFRESH */
+    /* PHASE 1: REFRESH — drain any async transactions from a previous call */
     if(cmd_u8) {
         while(panel->num_trans_inflight > 0){
             GC9A01_Status drain_s = hal->spi_get_trans_result(hal->spi_ctx, -1);
             panel->num_trans_inflight--;
             if(drain_s != GC9A01_OK && s == GC9A01_OK) { s = drain_s; }
         }
-
-        if(panel->cs_is_active){
-            hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
-            panel->cs_is_active = false;
-        }
-
-        if(panel->bus_is_acquired && spi_bus_control){
-            hal->spi_release_bus(hal->spi_ctx);
-            panel->bus_is_acquired = false;
-        }
         if(s != GC9A01_OK) { return s; }
     }
-    
-    /* PHASE 2: ACQUIRE BUS, ACTIVE CS */
-    if(spi_bus_control && !(panel->bus_is_acquired)){
+
+    /* PHASE 2: ACQUIRE BUS, ACTIVATE CS */
+    if(spi_bus_control){
         s = hal->spi_acquire_bus(hal->spi_ctx, -1);
         if (s != GC9A01_OK) { return s; }
-        panel->bus_is_acquired = true;
+        bus_acquired = true;
     }
-    if(!(panel->cs_is_active)){
-        s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
-        if(s != GC9A01_OK) { goto release; }
-        panel->cs_is_active = true;
-    }
+    s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
+    if(s != GC9A01_OK) { goto release; }
+    cs_active = true;
 
     /* PHASE 3: SEND CMD - POLLING */
     if(cmd_u8) {
@@ -144,24 +127,26 @@ GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
                 if(s != GC9A01_OK) { goto release; }
                 panel->num_trans_inflight++;
             } else {
-                s = hal->spi_transmit(hal->spi_ctx, color, chunk_size); /* Không mong muốn vào nhánh này, chạy được nhưng tốn CPU. */
+                s = hal->spi_transmit(hal->spi_ctx, color, chunk_size); /* Fallback path: works but costs CPU. */
                 if(s != GC9A01_OK) { goto release; }
             }
 
-            color = (const uint8_t*)color + chunk_size; /* Increase address to next chunk */
+            color = (const uint8_t*)color + chunk_size;
             color_size -= chunk_size;
         }
     }
 
 release:
-    if(spi_bus_control){
-        s = hal->spi_release_bus(hal->spi_ctx);
+    if(cs_active){
+        hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
     }
-    panel->bus_is_acquired = false;
+    if(bus_acquired){
+        GC9A01_Status release_s = hal->spi_release_bus(hal->spi_ctx);
+        if(s == GC9A01_OK) { s = release_s; }
+    }
     return s;
 }
 
 void GC9A01_OnTransactionDone(GC9A01_Panel *panel){
     panel->hal->gpio_write(panel->hal->CS, !(panel->hal->flags.cs_active_level));
-    panel->cs_is_active = false;
 }
