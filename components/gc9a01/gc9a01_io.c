@@ -135,17 +135,17 @@ GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
     /* PHASE 4: SEND COLOR */
     if(color != NULL && color_size > 0){
         s = hal->gpio_write(hal->DC, hal->flags.dc_param_level);
-        if(s != GC9A01_OK) { return s; }
+        if(s != GC9A01_OK) { goto release; }
 
         while(color_size > 0){
             size_t chunk_size = (color_size > hal->spi_trans_max_bytes) ? hal->spi_trans_max_bytes : color_size;
             if(async_capable) {
                 s = hal->spi_transmit_async(hal->spi_ctx, color, chunk_size);
-                if(s != GC9A01_OK) { return s; }
+                if(s != GC9A01_OK) { goto release; }
                 panel->num_trans_inflight++;
             } else {
                 s = hal->spi_transmit(hal->spi_ctx, color, chunk_size); /* Không mong muốn vào nhánh này, chạy được nhưng tốn CPU. */
-                if(s != GC9A01_OK) { return s; }
+                if(s != GC9A01_OK) { goto release; }
             }
 
             color = (const uint8_t*)color + chunk_size; /* Increase address to next chunk */
@@ -163,4 +163,5 @@ release:
 
 void GC9A01_OnTransactionDone(GC9A01_Panel *panel){
     panel->hal->gpio_write(panel->hal->CS, !(panel->hal->flags.cs_active_level));
+    panel->cs_is_active = false;
 }
