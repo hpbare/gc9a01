@@ -137,9 +137,6 @@ GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
     }
 
 release:
-    if(cs_active){
-        hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
-    }
     if(bus_acquired){
         GC9A01_Status release_s = hal->spi_release_bus(hal->spi_ctx);
         if(s == GC9A01_OK) { s = release_s; }
