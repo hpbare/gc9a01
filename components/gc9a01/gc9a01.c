@@ -71,7 +71,7 @@ GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
     return GC9A01_OK;
 }
 
-GC9A01_Panel *GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, void *ctx) {
+GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, void *ctx) {
     if(!panel || !hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -183,7 +183,6 @@ GC9A01_Status GC9A01_HalRegisterQueueSize(GC9A01_Hal *hal, size_t queue_size) {
     hal->spi_async.queue_size = queue_size;
     return GC9A01_OK;
 }
-
 
 GC9A01_Status GC9A01_HalRegisterSpiGetTransResult(GC9A01_Hal *hal, GC9A01_SpiGetTransResult *spi_get_trans_result) {
     if(!spi_get_trans_result || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
