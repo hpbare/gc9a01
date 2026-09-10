@@ -3,7 +3,7 @@
 
 /** @brief Common LCD panel commands */
 typedef enum {
-    GC9A01_CMD_NONE             = -1,
+    GC9A01_LCD_CMD_NONE         = -1,
     GC9A01_LCD_CMD_NOP          = 0x00, /* This command is empty command. */
     GC9A01_LCD_CMD_SWRESET      = 0x01, /* Software reset registers (the built-in frame buffer is not affected). */
     GC9A01_LCD_CMD_RDDID        = 0x04, /* Read 24-bit display ID. */
@@ -42,6 +42,6 @@ typedef enum {
     GC9A01_LCD_CMD_GDCAN        = 0x45, /* Get scan line. */
     GC9A01_LCD_CMD_WRDISBV      = 0x51, /* Write display brightness. */
     GC9A01_LCD_CMD_RDDISBV      = 0x52  /* Read display brightness value. */
-} GC9A01_SpiCmds;
+} GC9A01_LcdCmds;
 
 #endif /* GC9A01_CMDS_H_ */

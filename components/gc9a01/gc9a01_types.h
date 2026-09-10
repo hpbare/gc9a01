@@ -43,11 +43,9 @@ typedef struct {
 } GC9A01_Flags;
 
 typedef struct {
-    int cmd;
-    const void *data;
-    size_t data_bytes;
-    unsigned int delay_ms;
-} GC9A01_InitCmd;
+    uint8_t madctl_val;     /* save current value of LCD_CMD_MADCTL register */
+    uint8_t colmod_val;     /* save current value of LCD_CMD_COLMOD register */
+} GC9A01_Internal;
 
 typedef enum {
     GC9A01_SPI_TRANSMIT_TYPE_POLLING = 0,
@@ -72,19 +70,17 @@ typedef struct {
 } GC9A01_HalSpiAsync;
 
 typedef struct {
-    GC9A01_Gpio BLK;
-    GC9A01_Gpio DC;
-    GC9A01_Gpio RST;
-    GC9A01_Gpio CS;
-    GC9A01_GpioReset         gpio_reset;
-    GC9A01_GpioWrite         gpio_write;
-    GC9A01_DelayMs           delay_ms;
-    GC9A01_Flags             flags;
-    GC9A01_SpiTransmitType   type;
-
-    size_t                   spi_trans_max_bytes;
-    void *spi_ctx;
-
+    GC9A01_Gpio             BLK;
+    GC9A01_Gpio             DC;
+    GC9A01_Gpio             RST;
+    GC9A01_Gpio             CS;
+    GC9A01_GpioReset        gpio_reset;
+    GC9A01_GpioWrite        gpio_write;
+    GC9A01_DelayMs          delay_ms;
+    GC9A01_Flags            flags;
+    GC9A01_SpiTransmitType  type;
+    size_t                  spi_trans_max_bytes;
+    void                    *spi_ctx;
     union {
         GC9A01_HalSpiPolling spi_polling;
         GC9A01_HalSpiAsync   spi_async;
@@ -92,14 +88,9 @@ typedef struct {
 } GC9A01_Hal;
 
 typedef struct {
-    GC9A01_Hal *hal;
-
-    uint8_t madctl_val;         // save current value of LCD_CMD_MADCTL register
-    uint8_t colmod_val;         // save current value of LCD_CMD_COLMOD register
-    GC9A01_InitCmd *init_cmds;
-    uint16_t init_cmds_size;
-    /** @brief User context, spi handle for example. */
-    void *ctx;
+    GC9A01_Hal      *hal;
+    GC9A01_Internal state;
+    void            *ctx;   /**<! User context. */
 } GC9A01_Panel;
 
 #ifdef __cplusplus

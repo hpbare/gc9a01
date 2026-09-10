@@ -15,7 +15,7 @@
  * @param[in] param_size Size of `param` in memory, in bytes, set to zero if no parameter is needed for the command
  * @return    `GC9A01_OK` on success, GC9A01_ERROR_INVALID_ARGS if parameter is invalid.
  */
-static GC9A01_Status GC9A01_TransmitParamPolling(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *param, size_t param_size){
+static GC9A01_Status GC9A01_TransmitParamPolling(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *param, size_t param_size){
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
     uint8_t cmd_u8 = (uint8_t)cmd;
@@ -51,7 +51,7 @@ release:
  * @param[in] color_size Size of `color` in memory, in bytes
  * @return    `GC9A01_OK` on success, GC9A01_ERROR_INVALID_ARGS if parameter is invalid.
  */
-static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *color, size_t color_size){
+static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size){
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
     uint8_t cmd_u8 = (uint8_t)cmd;
@@ -114,7 +114,7 @@ static GC9A01_Status GC9A01_DrainAllTransAsync(GC9A01_HalSpiAsync *async) {
  *        sync transfer is fine and it lets us reuse the drain-before-sync
  *        rule below without a separate cmd-only descriptor.
  */
-static GC9A01_Status GC9A01_TransmitParamAsync(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *param, size_t param_size) {
+static GC9A01_Status GC9A01_TransmitParamAsync(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *param, size_t param_size) {
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
     GC9A01_HalSpiAsync *async = &hal->spi_async;
@@ -155,7 +155,7 @@ release:
  *        (same reasoning as GC9A01_TransmitParamAsync); color chunks are
  *        queued via spi_transmit_async, backpressure via queue_size.
  */
-static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *color, size_t color_size) {
+static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size) {
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
     GC9A01_HalSpiAsync *async = &hal->spi_async;
@@ -205,7 +205,7 @@ release:
     return s;
 }
 
-GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *param, size_t param_size){
+GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *param, size_t param_size){
     if(panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
         return GC9A01_TransmitParamPolling(panel, cmd, param, param_size);
     } else if(panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
@@ -216,7 +216,7 @@ GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, cons
 }
 
 /* Dispatcher pair for GC9A01_TransmitParam, symmetric with your existing one */
-GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_SpiCmds cmd, const void *color, size_t color_size) {
+GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size) {
     if (panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
         return GC9A01_TransmitColorPolling(panel, cmd, color, color_size);
     } else if (panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {

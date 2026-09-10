@@ -2,7 +2,14 @@
 #include "gc9a01_panel.h"
 #include "gc9a01_cmds.h"
 
-static const GC9A01_InitCmd vendor_specific_init_default[] = {
+typedef struct {
+    int cmd;
+    const void *data;
+    size_t data_bytes;
+    unsigned int delay_ms;
+} GC9A01_InitCmd;
+
+static const GC9A01_InitCmd init_cmds_default[] = {
 //  {cmd, { data }, data_size, delay_ms}
     // Enable Inter Register
     {0xfe, (uint8_t []){0x00}, 0, 0},
@@ -50,7 +57,6 @@ static const GC9A01_InitCmd vendor_specific_init_default[] = {
     {0x99, (uint8_t []){0x3e, 0x07}, 2, 0},
 };
 
-
 GC9A01_Status GC9A01_Reset(GC9A01_Panel *panel) {
     if(!panel || !(panel->hal)) {
         return GC9A01_ERROR_INVALID_ARGS;
@@ -83,33 +89,29 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
     if(s != GC9A01_OK) { return s; }
     hal->delay_ms(100);
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_MADCTL, (uint8_t[]){panel->madctl_val, 1}, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_MADCTL, (uint8_t[]){panel->state.colmod_val, 1}, 0);
     if(s != GC9A01_OK) { return s; }
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_COLMOD, (uint8_t[]){panel->colmod_val, 1}, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_COLMOD, (uint8_t[]){panel->state.colmod_val, 1}, 0);
     if(s != GC9A01_OK) { return s; }
 
-    if(panel->init_cmds == NULL){
-        panel->init_cmds = vendor_specific_init_default;
-        panel->init_cmds_size = sizeof(vendor_specific_init_default)/sizeof(GC9A01_InitCmd);
-    }
-
-    for (int i = 0; i < panel->init_cmds_size; i++) {
+    size_t init_cmds_size = sizeof(init_cmds_default)/sizeof(GC9A01_InitCmd);
+    for (int i = 0; i < init_cmds_size; i++) {
         // Check if the command has been used or conflicts with the internal
-        switch (panel->init_cmds[i].cmd) {
+        switch (init_cmds_default[i].cmd) {
         case GC9A01_LCD_CMD_MADCTL:
-            panel->madctl_val = ((uint8_t *)(panel->init_cmds[i].data))[0];
+            panel->state.colmod_val = ((uint8_t *)(init_cmds_default[i].data))[0];
             break;
         case GC9A01_LCD_CMD_COLMOD:
-            panel->colmod_val = ((uint8_t *)(panel->init_cmds[i].data))[0];
+            panel->state.colmod_val = ((uint8_t *)(init_cmds_default[i].data))[0];
             break;
         default:
             break;
         }
 
-        s = GC9A01_TransmitParam(panel, panel->init_cmds[i].cmd, panel->init_cmds[i].data, panel->init_cmds[i].data_bytes);
+        s = GC9A01_TransmitParam(panel, init_cmds_default[i].cmd, init_cmds_default[i].data, init_cmds_default[i].data_bytes);
         if(s != GC9A01_OK) { return s; }
-        hal->delay_ms(panel->init_cmds[i].delay_ms);
+        hal->delay_ms(init_cmds_default[i].delay_ms);
     }
 
     return s;
