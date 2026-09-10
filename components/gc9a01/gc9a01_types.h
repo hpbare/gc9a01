@@ -33,7 +33,7 @@ typedef GC9A01_Status (*GC9A01_SpiReleaseBus)(void *ctx);
 typedef GC9A01_Status (*GC9A01_SpiGetTransResult)(void *ctx, int32_t ms);
 
 typedef void (*GC9A01_TransDoneCb)(void *ctx);
-typedef void (*GC9A01_RegisterSpiTransDoneCb)(GC9A01_TransDoneCb callback_function, void *args); 
+typedef void (*GC9A01_SpiRegisterTransDoneCb)(GC9A01_TransDoneCb callback_function, void *args); 
 
 typedef struct {
     uint32_t dc_cmd_level   : 1;
@@ -62,12 +62,13 @@ typedef struct {
 
 typedef struct {
     size_t                        num_trans_inflight;
+    size_t                        queue_size;
     GC9A01_SpiTransmit            spi_transmit;
     GC9A01_SpiTransmitAsync       spi_transmit_async;
     GC9A01_SpiAcquireBus          spi_acquire_bus;
     GC9A01_SpiReleaseBus          spi_release_bus;
     GC9A01_SpiGetTransResult      spi_get_trans_result;
-    GC9A01_RegisterSpiTransDoneCb register_spi_trans_done_cb;
+    GC9A01_SpiRegisterTransDoneCb register_spi_trans_done_cb;
 } GC9A01_HalSpiAsync;
 
 typedef struct {
@@ -81,13 +82,6 @@ typedef struct {
     GC9A01_Flags             flags;
     GC9A01_SpiTransmitType   type;
 
-    // GC9A01_SpiTransmit       spi_transmit;
-    // GC9A01_SpiTransmitAsync  spi_transmit_async;
-    // GC9A01_SpiAcquireBus     spi_acquire_bus;
-    // GC9A01_SpiReleaseBus     spi_release_bus;
-    // GC9A01_SpiGetTransResult spi_get_trans_result;
-    // GC9A01_RegisterSpiTransDoneCb register_spi_trans_done_cb;
-
     size_t                   spi_trans_max_bytes;
     void *spi_ctx;
 
@@ -99,7 +93,6 @@ typedef struct {
 
 typedef struct {
     GC9A01_Hal *hal;
-    size_t num_trans_inflight;  /* đếm transaction đang treo. Chuyển vào GC9A01_HalSpi luôn.*/
 
     uint8_t madctl_val;         // save current value of LCD_CMD_MADCTL register
     uint8_t colmod_val;         // save current value of LCD_CMD_COLMOD register
