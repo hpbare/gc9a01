@@ -1,49 +1,6 @@
 #include "gc9a01.h"
 
-/**
- * @brief Default initializer for GC9A01_Hal - every pointer set to NULL,
- *        every scalar set to 0. Caller MUST fill in the function pointers
- *        and pins before use; this only guarantees no garbage/uninitialized
- *        stack values (dễ crash vì gọi nhầm con trỏ hàm rác).
- *
- * Usage:
- *   GC9A01_Hal hal = GC9A01_HAL_DEFAULT_CONFIG();
- *   hal.gpio_write = my_gpio_write;
- *   hal.spi_polling.spi_transmit = my_spi_transmit;
- *   ...
- */
-#define GC9A01_HAL_DEFAULT_CONFIG()                              \
-    {                                                            \
-        .BLK                 = {0},                              \
-        .DC                  = {0},                              \
-        .RST                 = {0},                              \
-        .CS                  = {0},                              \
-        .gpio_reset          = NULL,                             \
-        .gpio_write          = NULL,                             \
-        .delay_ms            = NULL,                             \
-        .flags               = {0},                              \
-        .type                = GC9A01_SPI_TRANSMIT_TYPE_POLLING, \
-        .spi_trans_max_bytes = 0,                                \
-        .spi_ctx             = NULL,                             \
-        .spi_polling         = {                                 \
-            .spi_transmit    = NULL,                             \
-            .spi_acquire_bus = NULL,                             \
-            .spi_release_bus = NULL,                             \
-        },                                                       \
-    }
-
-#define GC9A01_PANEL_DEFAULT_CONFIG()   \
-    {                                       \
-        .hal = GC9A01_HAL_DEFAULT_CONFIG(), \
-        .madctl_val = 0x00,                 \
-        .colmod_val = 0x00,                 \
-        .init_cmds = NULL,                  \
-        .init_cmds_size = 0,                \
-        .ctx = NULL,                        \
-    }
-
-
-GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
+static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
     panel->hal->BLK.ctx                     = NULL;
     panel->hal->DC.ctx                      = NULL;
     panel->hal->RST.ctx                     = NULL;
@@ -72,30 +29,43 @@ GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
 }
 
 GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, void *ctx) {
-    if(!panel || !hal) {
+    if(!hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
-    panel->hal = hal;
-    panel->ctx = ctx;
+    GC9A01_Status s = GC9A01_OK;
+    s = GC9A01_CreateDefaultPanel(panel);
+    if(s != GC9A01_OK) { return s; }
+    panel->hal              = hal;
+    panel->ctx              = ctx;
+    panel->state.madctl_val = 0x00;
+    panel->state.colmod_val = 0x00;
     return GC9A01_OK;
 }
 
-void GC9A01_HalRegisterGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BLK) {
+GC9A01_Status GC9A01_HalSetGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BLK) {
+    if(!hal) {
+        return GC9A01_ERROR_INVALID_ARGS;
+    }
     hal->DC  = DC;
     hal->RST = RST;
     hal->CS  = CS;
     hal->BLK = BLK;
+    return GC9A01_OK;
 }
 
-void GC9A01_HalRegisterLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level) {
+GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level) {
+    if(!hal) {
+        return GC9A01_ERROR_INVALID_ARGS;
+    }
     hal->flags.dc_cmd_level    = dc_cmd_level;
     hal->flags.dc_param_level  = dc_param_level;
     hal->flags.cs_active_level = cs_active_level;
     hal->flags.rst_level       = rst_level;
+    return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterGpioApis(GC9A01_Hal *hal, GC9A01_GpioReset *gpio_reset, GC9A01_GpioWrite *gpio_write) {
-    if(!gpio_reset || !gpio_write) {
+GC9A01_Status GC9A01_HalSetGpioApis(GC9A01_Hal *hal, GC9A01_GpioReset *gpio_reset, GC9A01_GpioWrite *gpio_write) {
+    if(!hal || !gpio_reset || !gpio_write) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     hal->gpio_reset = gpio_reset;
@@ -103,7 +73,7 @@ GC9A01_Status GC9A01_HalRegisterGpioApis(GC9A01_Hal *hal, GC9A01_GpioReset *gpio
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterDelayMs(GC9A01_Hal *hal, GC9A01_DelayMs *delay_ms) {
+GC9A01_Status GC9A01_HalSetDelayMs(GC9A01_Hal *hal, GC9A01_DelayMs *delay_ms) {
     if(!delay_ms) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -111,22 +81,22 @@ GC9A01_Status GC9A01_HalRegisterDelayMs(GC9A01_Hal *hal, GC9A01_DelayMs *delay_m
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterTransmitType(GC9A01_Hal *hal, GC9A01_SpiTransmitType type) {
+GC9A01_Status GC9A01_HalSetTransmitType(GC9A01_Hal *hal, GC9A01_SpiTransmitType type) {
     hal->type = type;
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiTransMaxBytes(GC9A01_Hal *hal, size_t spi_trans_max_bytes) {
+GC9A01_Status GC9A01_HalSetSpiTransMaxBytes(GC9A01_Hal *hal, size_t spi_trans_max_bytes) {
     hal->spi_trans_max_bytes = spi_trans_max_bytes;
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiCtx(GC9A01_Hal *hal, void *spi_ctx) {
+GC9A01_Status GC9A01_HalSetSpiCtx(GC9A01_Hal *hal, void *spi_ctx) {
     hal->spi_ctx = spi_ctx;
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiTransmit(GC9A01_Hal *hal, GC9A01_SpiTransmit *spi_transmit) {
+GC9A01_Status GC9A01_HalSetSpiTransmit(GC9A01_Hal *hal, GC9A01_SpiTransmit *spi_transmit) {
     if(!spi_transmit) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -140,7 +110,7 @@ GC9A01_Status GC9A01_HalRegisterSpiTransmit(GC9A01_Hal *hal, GC9A01_SpiTransmit 
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiTransmitAsync(GC9A01_Hal *hal, GC9A01_SpiTransmitAsync *spi_transmit_async) {
+GC9A01_Status GC9A01_HalSetSpiTransmitAsync(GC9A01_Hal *hal, GC9A01_SpiTransmitAsync *spi_transmit_async) {
     if(!spi_transmit_async || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -148,7 +118,7 @@ GC9A01_Status GC9A01_HalRegisterSpiTransmitAsync(GC9A01_Hal *hal, GC9A01_SpiTran
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiAcquireBus(GC9A01_Hal *hal, GC9A01_SpiAcquireBus *spi_acquire_bus) {
+GC9A01_Status GC9A01_HalSetSpiAcquireBus(GC9A01_Hal *hal, GC9A01_SpiAcquireBus *spi_acquire_bus) {
     if(!spi_acquire_bus) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -162,7 +132,7 @@ GC9A01_Status GC9A01_HalRegisterSpiAcquireBus(GC9A01_Hal *hal, GC9A01_SpiAcquire
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiReleaseBus(GC9A01_Hal *hal, GC9A01_SpiAcquireBus *spi_release_bus) {
+GC9A01_Status GC9A01_HalSetSpiReleaseBus(GC9A01_Hal *hal, GC9A01_SpiAcquireBus *spi_release_bus) {
     if(!spi_release_bus) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -176,7 +146,7 @@ GC9A01_Status GC9A01_HalRegisterSpiReleaseBus(GC9A01_Hal *hal, GC9A01_SpiAcquire
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterQueueSize(GC9A01_Hal *hal, size_t queue_size) {
+GC9A01_Status GC9A01_HalSetQueueSize(GC9A01_Hal *hal, size_t queue_size) {
     if(hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -184,7 +154,7 @@ GC9A01_Status GC9A01_HalRegisterQueueSize(GC9A01_Hal *hal, size_t queue_size) {
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiGetTransResult(GC9A01_Hal *hal, GC9A01_SpiGetTransResult *spi_get_trans_result) {
+GC9A01_Status GC9A01_HalSetSpiGetTransResult(GC9A01_Hal *hal, GC9A01_SpiGetTransResult *spi_get_trans_result) {
     if(!spi_get_trans_result || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -192,7 +162,7 @@ GC9A01_Status GC9A01_HalRegisterSpiGetTransResult(GC9A01_Hal *hal, GC9A01_SpiGet
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalRegisterSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb *register_spi_trans_done_cb) {
+GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb *register_spi_trans_done_cb) {
     if(!register_spi_trans_done_cb || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
