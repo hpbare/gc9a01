@@ -529,45 +529,85 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
 
 /* LAYER 3: APPLICATION */
 
-static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
-    panel->hal->gpio_reset                  = NULL;
-    panel->hal->gpio_write                  = NULL;
-    panel->hal->delay_ms                    = NULL;
-    panel->hal->BLK.ctx                     = NULL;
-    panel->hal->DC.ctx                      = NULL;
-    panel->hal->RST.ctx                     = NULL;
-    panel->hal->CS.ctx                      = NULL;
-    panel->hal->BLK.pin                     = -1;
-    panel->hal->DC.pin                      = -1;
-    panel->hal->RST.pin                     = -1;
-    panel->hal->CS.pin                      = -1;
-    panel->hal->flags.dc_cmd_level          = 1;
-    panel->hal->flags.dc_param_level        = 1;
-    panel->hal->flags.rst_level             = 0;
-    panel->hal->flags.cs_active_level       = 0;
-    panel->hal->type                        = GC9A01_SPI_TRANSMIT_TYPE_POLLING;
-    panel->hal->spi_trans_max_bytes         = 0;
-    panel->hal->spi_ctx                     = NULL;
-    panel->hal->spi_polling.spi_transmit    = NULL;
-    panel->hal->spi_polling.spi_acquire_bus = NULL;
-    panel->hal->spi_polling.spi_release_bus = NULL;
-    panel->state.madctl_val                 = 0x00;
-    panel->state.colmod_val                 = 0x00;
-    panel->ctx                              = NULL;
+// static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
+//     panel->hal->gpio_reset                           = NULL;
+//     panel->hal->gpio_write                           = NULL;
+//     panel->hal->delay_ms                             = NULL;
+//     panel->hal->BLK.ctx                              = NULL;
+//     panel->hal->DC.ctx                               = NULL;
+//     panel->hal->RST.ctx                              = NULL;
+//     panel->hal->CS.ctx                               = NULL;
+//     panel->hal->BLK.pin                              = -1;
+//     panel->hal->DC.pin                               = -1;
+//     panel->hal->RST.pin                              = -1;
+//     panel->hal->CS.pin                               = -1;
+//     panel->hal->flags.dc_cmd_level                   = 1;
+//     panel->hal->flags.dc_param_level                 = 1;
+//     panel->hal->flags.rst_level                      = 0;
+//     panel->hal->flags.cs_active_level                = 0;
+//     panel->hal->type                                 = GC9A01_SPI_TRANSMIT_TYPE_POLLING;
+//     panel->hal->spi_trans_max_bytes                  = 0;
+//     panel->hal->spi_ctx                              = NULL;
+//     panel->hal->spi_polling.spi_transmit             = NULL;
+//     panel->hal->spi_polling.spi_acquire_bus          = NULL;
+//     panel->hal->spi_polling.spi_release_bus          = NULL;
+//     panel->hal->spi_async.num_trans_inflight         = 0;
+//     panel->hal->spi_async.queue_size                 = 0;
+//     panel->hal->spi_async.spi_transmit               = NULL;
+//     panel->hal->spi_async.spi_transmit_async         = NULL;
+//     panel->hal->spi_async.spi_acquire_bus            = NULL;
+//     panel->hal->spi_async.spi_release_bus            = NULL;
+//     panel->hal->spi_async.spi_get_trans_result       = NULL;
+//     panel->hal->spi_async.register_spi_trans_done_cb = NULL;
+
+//     return GC9A01_OK;
+// }
+
+GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
+    hal->gpio_reset                           = NULL;
+    hal->gpio_write                           = NULL;
+    hal->delay_ms                             = NULL;
+    hal->BLK.ctx                              = NULL;
+    hal->DC.ctx                               = NULL;
+    hal->RST.ctx                              = NULL;
+    hal->CS.ctx                               = NULL;
+    hal->BLK.pin                              = -1;
+    hal->DC.pin                               = -1;
+    hal->RST.pin                              = -1;
+    hal->CS.pin                               = -1;
+    hal->flags.dc_cmd_level                   = 1;
+    hal->flags.dc_param_level                 = 1;
+    hal->flags.rst_level                      = 0;
+    hal->flags.cs_active_level                = 0;
+    hal->type                                 = GC9A01_SPI_TRANSMIT_TYPE_POLLING;
+    hal->spi_trans_max_bytes                  = 0;
+    hal->spi_ctx                              = NULL;
+    hal->spi_polling.spi_transmit             = NULL;
+    hal->spi_polling.spi_acquire_bus          = NULL;
+    hal->spi_polling.spi_release_bus          = NULL;
+    hal->spi_async.num_trans_inflight         = 0;
+    hal->spi_async.queue_size                 = 0;
+    hal->spi_async.spi_transmit               = NULL;
+    hal->spi_async.spi_transmit_async         = NULL;
+    hal->spi_async.spi_acquire_bus            = NULL;
+    hal->spi_async.spi_release_bus            = NULL;
+    hal->spi_async.spi_get_trans_result       = NULL;
+    hal->spi_async.register_spi_trans_done_cb = NULL;
     return GC9A01_OK;
 }
 
 GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Config *config, void *ctx) {
-    if(!hal) {
+    if(!hal || !config) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     GC9A01_Status s = GC9A01_OK;
-    s = GC9A01_CreateDefaultPanel(panel);
-    if(s != GC9A01_OK) { return s; }
 
     panel->hal              = hal;
     panel->config           = config;
     panel->ctx              = ctx;
+    panel->state.madctl_val = 0x00;
+    panel->state.colmod_val = 0x00;
+    panel->ctx              = NULL;
 
     panel->hal->gpio_reset(panel->hal->RST);
 

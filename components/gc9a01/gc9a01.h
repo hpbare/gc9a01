@@ -22,6 +22,7 @@ extern "C"
     /* LAYER 3: APPLICATION */
     GC9A01_Status GC9A01_CreatePanel                 (GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Config *config, void *ctx);
 
+    GC9A01_Status GC9A01_CreateDefaultHal            (GC9A01_Hal *hal);
     GC9A01_Status GC9A01_HalSetGpio                  (GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BLK);
     GC9A01_Status GC9A01_HalSetLogicLevel            (GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level);
     GC9A01_Status GC9A01_HalSetGpioApis              (GC9A01_Hal *hal, GC9A01_GpioReset gpio_reset, GC9A01_GpioWrite gpio_write);
