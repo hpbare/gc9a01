@@ -84,8 +84,9 @@ release:
 }
 
 /* Reap exactly one oldest-completed transaction, decrement the counter. */
-static GC9A01_Status GC9A01_ReapOneTransAsync(GC9A01_HalSpiAsync *async) {
-    GC9A01_Status s = async->spi_get_trans_result(async, -1);
+static GC9A01_Status GC9A01_ReapOneTransAsync(GC9A01_Hal *hal) {
+    GC9A01_HalSpiAsync *async = &hal->spi_async;
+    GC9A01_Status s = async->spi_get_trans_result(hal->spi_ctx, -1);
     if (s == GC9A01_OK && async->num_trans_inflight) {
         async->num_trans_inflight--;
     }
@@ -95,10 +96,10 @@ static GC9A01_Status GC9A01_ReapOneTransAsync(GC9A01_HalSpiAsync *async) {
 /* Drain every in-flight transaction. Required before any polling (sync)
  * transmit on the same bus, since the queued chunks and the sync cmd
  * transfer physically share one SPI peripheral. */
-static GC9A01_Status GC9A01_DrainAllTransAsync(GC9A01_HalSpiAsync *async) {
+static GC9A01_Status GC9A01_DrainAllTransAsync(GC9A01_Hal *hal) {
     GC9A01_Status s = GC9A01_OK;
-    while (async->num_trans_inflight) {
-        s = GC9A01_ReapOneTransAsync(async);
+    while (hal->spi_async.num_trans_inflight) {
+        s = GC9A01_ReapOneTransAsync(hal);
         if (s != GC9A01_OK) {
             return s;
         }
@@ -122,7 +123,7 @@ static GC9A01_Status GC9A01_TransmitParamAsync(GC9A01_Panel *panel, GC9A01_LcdCm
     if (s != GC9A01_OK) { goto release; }
 
     /* Must be empty before any sync transfer touches the bus. */
-    s = GC9A01_DrainAllTransAsync(async);
+    s = GC9A01_DrainAllTransAsync(hal);
     if (s != GC9A01_OK) { goto release; }
 
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
@@ -162,7 +163,7 @@ static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCm
     s = async->spi_acquire_bus(hal->spi_ctx, -1);
     if (s != GC9A01_OK) { goto release; }
 
-    s = GC9A01_DrainAllTransAsync(async);
+    s = GC9A01_DrainAllTransAsync(hal);
     if (s != GC9A01_OK) { goto release; }
 
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
@@ -303,7 +304,7 @@ GC9A01_Status GC9A01_Reset(GC9A01_Panel *panel) {
         hal->delay_ms(10);
     } else {
         s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SWRESET, NULL, 0);
-        if(s != GC9A01_OK) { return -1; }
+        if(s != GC9A01_OK) { return s; }
         panel->hal->delay_ms(20);
     }
 
@@ -516,9 +517,9 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
      */
     GC9A01_Status s = GC9A01_OK;
     if(sleep) {
-        s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_DISPON, NULL, 0);
+        s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPIN, NULL, 0);
     } else {
-        s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_DISPOFF, NULL, 0);
+        s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPOUT, NULL, 0);
     }
     panel->hal->delay_ms(120);
 
