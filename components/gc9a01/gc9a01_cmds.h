@@ -44,4 +44,14 @@ typedef enum {
     GC9A01_LCD_CMD_RDDISBV      = 0x52  /* Read display brightness value. */
 } GC9A01_LcdCmds;
 
+
+/** @brief MADCTL register. @ref p.127 datasheet at ./docs/GC9A01A.pdf */
+#define GC9A01_LCD_CMD_MH_BIT   (1 << 2) // Horizontal Refresh ORDER, 0: refresh left to right, 1: refresh right to left
+#define GC9A01_LCD_CMD_BGR_BIT  (1 << 3) // RGB/BGR order,            0: RGB,                   1: BGR
+#define GC9A01_LCD_CMD_ML_BIT   (1 << 4) // Vertical Refresh Order,   0: refresh top to bottom, 1: refresh bottom to top
+#define GC9A01_LCD_CMD_MV_BIT   (1 << 5) // Row/Column order,         0: normal mode,           1: reverse mode
+#define GC9A01_LCD_CMD_MX_BIT   (1 << 6) // Column Address Order,     0: left to right,         1: right to left
+#define GC9A01_LCD_CMD_MY_BIT   (1 << 7) // Row Address Order,        0: top to bottom,         1: bottom to top
+
+
 #endif /* GC9A01_CMDS_H_ */

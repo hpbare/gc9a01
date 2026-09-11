@@ -1,3 +1,4 @@
+#include "gc9a01.h"
 #include "gc9a01_types.h"
 #include "gc9a01_cmds.h"
 

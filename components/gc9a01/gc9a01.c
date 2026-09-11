@@ -1,6 +1,9 @@
 #include "gc9a01.h"
 
 static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
+    panel->hal->gpio_reset                  = NULL;
+    panel->hal->gpio_write                  = NULL;
+    panel->hal->delay_ms                    = NULL;
     panel->hal->BLK.ctx                     = NULL;
     panel->hal->DC.ctx                      = NULL;
     panel->hal->RST.ctx                     = NULL;
@@ -9,9 +12,6 @@ static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
     panel->hal->DC.pin                      = -1;
     panel->hal->RST.pin                     = -1;
     panel->hal->CS.pin                      = -1;
-    panel->hal->gpio_reset                  = NULL;
-    panel->hal->gpio_write                  = NULL;
-    panel->hal->delay_ms                    = NULL;
     panel->hal->flags.dc_cmd_level          = 1;
     panel->hal->flags.dc_param_level        = 1;
     panel->hal->flags.rst_level             = 0;
@@ -28,17 +28,50 @@ static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, void *ctx) {
+GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Config *config, void *ctx) {
     if(!hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     GC9A01_Status s = GC9A01_OK;
     s = GC9A01_CreateDefaultPanel(panel);
     if(s != GC9A01_OK) { return s; }
+
     panel->hal              = hal;
+    panel->config           = config;
     panel->ctx              = ctx;
-    panel->state.madctl_val = 0x00;
-    panel->state.colmod_val = 0x00;
+
+    panel->hal->gpio_reset(panel->hal->RST);
+
+
+    switch(panel->config->rgb_element_order) {
+        case GC9A01_RGB_ELEMENT_ORDER_RGB:
+            panel->state.madctl_val &= ~GC9A01_LCD_CMD_BGR_BIT;
+            break;
+        
+        case GC9A01_RGB_ELEMENT_ORDER_BGR:
+            panel->state.madctl_val |= GC9A01_LCD_CMD_BGR_BIT;
+            break;
+        default:
+            panel->hal->gpio_reset(panel->hal->RST);
+            return GC9A01_ERROR_NOT_SUPPORTED;
+    }
+
+    switch(panel->config->bits_per_pixel) {
+        case 16:
+            panel->state.colmod_val           = 0x55;
+            panel->config->fb_bits_per_pixels = 16;
+            break;
+
+        case 18:
+            panel->state.colmod_val           = 0x66;
+            panel->config->fb_bits_per_pixels = 24;
+            break;
+
+        default:
+            panel->hal->gpio_reset(panel->hal->RST);
+            return GC9A01_ERROR_NOT_SUPPORTED;
+    }
+
     return GC9A01_OK;
 }
 

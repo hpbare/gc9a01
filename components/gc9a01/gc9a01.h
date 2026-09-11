@@ -1,14 +1,20 @@
 #ifndef GC9A01_H_
 #define GC9A01_H_
 
-#include "gc9a01_panel.h"
-#include "gc9a01_io.h"
 #include "gc9a01_types.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+    /** @brief GC9A01 panel handle. */
+    typedef struct {
+        GC9A01_Hal      *hal;       /**<! Hal abstract. */
+        GC9A01_Config   *config;    /**<! Panel configurations. */
+        GC9A01_Internal state;      /**<! Internal state. */
+        void            *ctx;       /**<! User context. */
+    } GC9A01_Panel;
 
     GC9A01_Status GC9A01_CreatePanel                 (GC9A01_Panel *panel, GC9A01_Hal *hal, void *ctx);
 
@@ -26,6 +32,17 @@ extern "C"
     GC9A01_Status GC9A01_HalSetQueueSize             (GC9A01_Hal *hal, size_t queue_size);
     GC9A01_Status GC9A01_HalSetSpiGetTransResult     (GC9A01_Hal *hal, GC9A01_SpiGetTransResult *spi_get_trans_result);
     GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb *register_spi_trans_done_cb);
+
+    GC9A01_Status GC9A01_Reset                       (GC9A01_Panel *panel);
+    GC9A01_Status GC9A01_Init                        (GC9A01_Panel *panel);
+    GC9A01_Status GC9A01_Destroy                     (GC9A01_Panel *panel);
+    GC9A01_Status GC9A01_DrawBitmap                  (GC9A01_Panel *panel, int x_start, int y_start, int x_end, int y_end, const void *color_data);
+    GC9A01_Status GC9A01_Mirror                      (GC9A01_Panel *panel, bool x_axis, bool y_axis);
+    GC9A01_Status GC9A01_SwapXY                      (GC9A01_Panel *panel, bool swap_axes);
+    GC9A01_Status GC9A01_SetGap                      (GC9A01_Panel *panel, int x_gap, int y_gap);
+    GC9A01_Status GC9A01_InvertColor                 (GC9A01_Panel *panel, bool invert_color_data);
+    GC9A01_Status GC9A01_DispOnOff                   (GC9A01_Panel *panel, bool on_off);
+    GC9A01_Status GC9A01_DispSleep                   (GC9A01_Panel *panel, bool sleep);
 
 #ifdef __cplusplus
 }
