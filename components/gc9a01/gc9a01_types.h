@@ -9,8 +9,16 @@
 extern "C" {
 #endif
 
-/**
- * @brief Generic GPIO handle. */
+/** @brief GC9A01 driver status code. */
+typedef enum {
+    GC9A01_OK                  = 0,
+    GC9A01_ERROR_INVALID_ARGS  = -1,
+    GC9A01_ERROR_NOT_SUPPORTED = -2,
+    GC9A01_ERROR_SPI           = -3,
+    GC9A01_ERROR_GPIO          = -4
+} GC9A01_Status;
+
+/** @brief Generic GPIO handle. */
 typedef struct {
     void *ctx;      /**<! Platform specific (e.g. GPIO port struct). */
     int32_t pin;    /**<! Pin number/mask of platform. */
@@ -45,14 +53,6 @@ typedef void          (*GC9A01_TransDoneCb)(void *ctx);
 
 /** @brief Registers `callback_function` to be invoked (with `args`) on transaction completion. */
 typedef void          (*GC9A01_SpiRegisterTransDoneCb)(GC9A01_TransDoneCb callback_function, void *args); 
-
-/** @brief GC9A01 driver status code. */
-typedef enum {
-    GC9A01_OK                  = 0,
-    GC9A01_ERROR_INVALID_ARGS  = -1,
-    GC9A01_ERROR_NOT_SUPPORTED = -2,
-    GC9A01_ERROR_SPI           = -3,
-} GC9A01_Status;
 
 /** @brief Active-level/polarity configuration for control pins. */
 typedef struct {

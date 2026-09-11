@@ -1,5 +1,5 @@
 if(ESP_PLATFORM)
-    idf_component_register(SRCS "gc9a01_panel.c" "gc9a01_io.c" "gc9a01.c" INCLUDE_DIRS ".")
+    idf_component_register(SRCS "gc9a01.c" INCLUDE_DIRS ".")
 else()
     add_library(gc9a01 STATIC gc9a01.c)
     target_include_directories(gc9a01 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
