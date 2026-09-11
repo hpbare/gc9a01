@@ -326,10 +326,10 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
     if(s != GC9A01_OK) { return s; }
     hal->delay_ms(100);
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_MADCTL, (uint8_t[]){panel->state.colmod_val, 1}, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_MADCTL, &panel->state.madctl_val, 1);
     if(s != GC9A01_OK) { return s; }
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_COLMOD, (uint8_t[]){panel->state.colmod_val, 1}, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_COLMOD, &panel->state.colmod_val, 1);
     if(s != GC9A01_OK) { return s; }
 
     size_t init_cmds_size = sizeof(init_cmds_default)/sizeof(GC9A01_InitCmd);
@@ -379,7 +379,7 @@ GC9A01_Status GC9A01_Destroy(GC9A01_Panel *panel) {
  * @return `GC9A01_OK` on success
  */
 GC9A01_Status GC9A01_DrawBitmap(GC9A01_Panel *panel, int x_start, int y_start, int x_end, int y_end, const void *color_data) {
-    if((x_start < x_end) || (y_start < y_end)) {
+    if((x_start >= x_end) || (y_start >= y_end)) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     GC9A01_Status s = GC9A01_OK;
@@ -389,26 +389,26 @@ GC9A01_Status GC9A01_DrawBitmap(GC9A01_Panel *panel, int x_start, int y_start, i
     y_start += panel->config->y_gap;
     y_end   += panel->config->y_gap;
 
-    uint8_t raset_param[] = {
+    uint8_t caset_param[] = {
         (x_start >> 8)      & 0xFF,
         (x_start)           & 0xFF,
         ((x_end - 1) >> 8)  & 0xFF,
         (x_end - 1)         & 0xFF
     };
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_CASET, raset_param, sizeof(raset_param)/sizeof(uint8_t));
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_CASET, caset_param, sizeof(caset_param)/sizeof(uint8_t));
     if(s != GC9A01_OK) { return s; }
 
-    uint8_t caset_param[] = {
+    uint8_t raset_param[] = {
         (y_start >> 8)      & 0xFF,
         (y_start)           & 0xFF,
         ((y_end - 1) >> 8)  & 0xFF,
         (y_end - 1)         & 0xFF
     };
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_CASET, caset_param, sizeof(caset_param)/sizeof(uint8_t));
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_RASET, raset_param, sizeof(raset_param)/sizeof(uint8_t));
     if(s != GC9A01_OK) { return s; }
 
     size_t color_size = ((x_end - x_start) * (y_end - y_start) * panel->config->fb_bits_per_pixels)/8;
-    return GC9A01_TransmitColor(panel, GC9A01_LCD_CMD_RAMRD, color_data, color_size);
+    return GC9A01_TransmitColor(panel, GC9A01_LCD_CMD_RAMWR, color_data, color_size);
 }
 
 /**
