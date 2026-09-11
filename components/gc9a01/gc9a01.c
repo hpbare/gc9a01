@@ -607,7 +607,6 @@ GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Co
     panel->ctx              = ctx;
     panel->state.madctl_val = 0x00;
     panel->state.colmod_val = 0x00;
-    panel->ctx              = NULL;
 
     panel->hal->gpio_reset(panel->hal->RST);
 
