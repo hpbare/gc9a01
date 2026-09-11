@@ -183,7 +183,7 @@ static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCm
         while (color_size > 0) {
             /* Backpressure: reap one oldest chunk if the queue is full. */
             if (async->num_trans_inflight >= async->queue_size) {
-                s = GC9A01_ReapOneTransAsync(async);
+                s = GC9A01_ReapOneTransAsync(hal);
                 if (s != GC9A01_OK) { goto release; }
             }
 
@@ -338,7 +338,7 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
         // Check if the command has been used or conflicts with the internal
         switch (init_cmds_default[i].cmd) {
         case GC9A01_LCD_CMD_MADCTL:
-            panel->state.colmod_val = ((uint8_t *)(init_cmds_default[i].data))[0];
+            panel->state.madctl_val = ((uint8_t *)(init_cmds_default[i].data))[0];
             break;
         case GC9A01_LCD_CMD_COLMOD:
             panel->state.colmod_val = ((uint8_t *)(init_cmds_default[i].data))[0];
