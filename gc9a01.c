@@ -440,6 +440,7 @@ GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
     hal->flags.dc_param_level        = 1;
     hal->flags.rst_level             = 0;
     hal->flags.cs_active_level       = 0;
+    hal->flags.bkl_on_level          = 1;
     hal->spi_trans_max_bytes         = 0;
     hal->spi_ctx                     = NULL;
     hal->spi_polling.spi_transmit    = NULL;
