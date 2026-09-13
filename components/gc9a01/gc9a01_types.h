@@ -36,23 +36,11 @@ typedef GC9A01_Status (*GC9A01_GpioReset)(GC9A01_Gpio gpio);
 /** @brief Blocking SPI transmit. */
 typedef GC9A01_Status (*GC9A01_SpiTransmit)(void *ctx, const void *tx, size_t len);
 
-/** @brief Async SPI transmit. */
-typedef GC9A01_Status (*GC9A01_SpiTransmitAsync)(void *ctx, const void *tx, size_t len);
-
 /** @brief Acquire exclusive access to the shared SPI bus (timeout in ms, -1 = wait forever). */
 typedef GC9A01_Status (*GC9A01_SpiAcquireBus)(void *ctx, int32_t timeout_ms);
 
 /** @brief Release SPI bus. */
 typedef GC9A01_Status (*GC9A01_SpiReleaseBus)(void *ctx);
-
-/** @brief Wait up to `ms` for an in-flight async transaction to finish. */
-typedef GC9A01_Status (*GC9A01_SpiGetTransResult)(void *ctx, int32_t ms);
-
-/** @brief Called by the HAL when an async SPI transaction completes. */
-typedef void          (*GC9A01_TransDoneCb)(void *ctx);
-
-/** @brief Registers `callback_function` to be invoked (with `args`) on transaction completion. */
-typedef void          (*GC9A01_SpiRegisterTransDoneCb)(GC9A01_TransDoneCb callback_function, void *args); 
 
 /** @brief Active-level/polarity configuration for control pins. */
 typedef struct {
@@ -91,30 +79,12 @@ typedef struct {
     GC9A01_RgbDataEndian    data_endian;
 } GC9A01_Config;
 
-/** @brief Selects which member of the spi_polling/spi_async union is active. */
-typedef enum {
-    GC9A01_SPI_TRANSMIT_TYPE_POLLING = 0,
-    GC9A01_SPI_TRANSMIT_TYPE_ASYNC   = 1
-} GC9A01_SpiTransmitType;
-
 /** @brief HAL SPI hooks for blocking (polling) transfers. */
 typedef struct {
     GC9A01_SpiTransmit            spi_transmit;
     GC9A01_SpiAcquireBus          spi_acquire_bus;
     GC9A01_SpiReleaseBus          spi_release_bus;
 } GC9A01_HalSpiPolling;
-
-/** @brief HAL SPI hooks for non-blocking (async/queued) transfers. */
-typedef struct {
-    size_t                        num_trans_inflight;
-    size_t                        queue_size;
-    GC9A01_SpiTransmit            spi_transmit;
-    GC9A01_SpiTransmitAsync       spi_transmit_async;
-    GC9A01_SpiAcquireBus          spi_acquire_bus;
-    GC9A01_SpiReleaseBus          spi_release_bus;
-    GC9A01_SpiGetTransResult      spi_get_trans_result;
-    GC9A01_SpiRegisterTransDoneCb register_spi_trans_done_cb;
-} GC9A01_HalSpiAsync;
 
 /** @brief Top-level HAL injected into the driver. */
 typedef struct {
@@ -126,13 +96,9 @@ typedef struct {
     GC9A01_GpioWrite        gpio_write;
     GC9A01_DelayMs          delay_ms;
     GC9A01_Flags            flags;
-    GC9A01_SpiTransmitType  type;                /* picks polling vs async union member */
     size_t                  spi_trans_max_bytes; /* max bytes per single SPI transaction */
     void                    *spi_ctx;            /* opaque handle passed to all SPI callbacks */
-    union {
-        GC9A01_HalSpiPolling spi_polling;
-        GC9A01_HalSpiAsync   spi_async;
-    };
+    GC9A01_HalSpiPolling    spi_polling;
 } GC9A01_Hal;
 
 #ifdef __cplusplus

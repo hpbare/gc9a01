@@ -83,150 +83,28 @@ release:
     return s;
 }
 
-/* Reap exactly one oldest-completed transaction, decrement the counter. */
-static GC9A01_Status GC9A01_ReapOneTransAsync(GC9A01_Hal *hal) {
-    GC9A01_HalSpiAsync *async = &hal->spi_async;
-    GC9A01_Status s = async->spi_get_trans_result(hal->spi_ctx, -1);
-    if (s == GC9A01_OK && async->num_trans_inflight) {
-        async->num_trans_inflight--;
-    }
-    return s;
-}
-
-/* Drain every in-flight transaction. Required before any polling (sync)
- * transmit on the same bus, since the queued chunks and the sync cmd
- * transfer physically share one SPI peripheral. */
-static GC9A01_Status GC9A01_DrainAllTransAsync(GC9A01_Hal *hal) {
-    GC9A01_Status s = GC9A01_OK;
-    while (hal->spi_async.num_trans_inflight) {
-        s = GC9A01_ReapOneTransAsync(hal);
-        if (s != GC9A01_OK) {
-            return s;
-        }
-    }
-    return GC9A01_OK;
-}
-
 /**
- * @brief Transmit LCD command + parameters. Command is sent synchronously
- *        (like the polling path); parameters are still small enough that
- *        sync transfer is fine and it lets us reuse the drain-before-sync
- *        rule below without a separate cmd-only descriptor.
+ * @brief Transmit LCD command and corresponding parameters
+ * @param[in] panel LCD panel handle.
+ * @param[in] cmd The specific LCD command
+ * @param[in] param Buffer that holds the command specific parameters, set to NULL if no parameter is needed for the command
+ * @param[in] param_size Size of `param` in memory, in bytes, set to zero if no parameter is needed for the command
+ * @return    `GC9A01_OK` on success, GC9A01_ERROR_INVALID_ARGS if parameter is invalid.
  */
-static GC9A01_Status GC9A01_TransmitParamAsync(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *param, size_t param_size) {
-    GC9A01_Status s = GC9A01_OK;
-    GC9A01_Hal *hal = panel->hal;
-    GC9A01_HalSpiAsync *async = &hal->spi_async;
-    uint8_t cmd_u8 = (uint8_t)cmd;
-
-    s = async->spi_acquire_bus(hal->spi_ctx, -1);
-    if (s != GC9A01_OK) { return s; }
-
-    /* Must be empty before any sync transfer touches the bus. */
-    s = GC9A01_DrainAllTransAsync(hal);
-    if (s != GC9A01_OK) { goto release; }
-
-    s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
-    if (s != GC9A01_OK) { goto release; }
-
-    if (cmd_u8) {
-        s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
-        if (s != GC9A01_OK) { goto release; }
-        s = async->spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
-        if (s != GC9A01_OK) { goto release; }
-    }
-
-    if (param && param_size) {
-        s = hal->gpio_write(hal->DC, hal->flags.dc_param_level);
-        if (s != GC9A01_OK) { goto release; }
-        s = async->spi_transmit(hal->spi_ctx, param, param_size);
-        if (s != GC9A01_OK) { goto release; }
-    }
-
-release:
-    hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
-    async->spi_release_bus(hal->spi_ctx);
-    return s;
-}
-
-/**
- * @brief Transmit LCD RGB color data async. Command still sent sync/polling
- *        (same reasoning as GC9A01_TransmitParamAsync); color chunks are
- *        queued via spi_transmit_async, backpressure via queue_size.
- */
-static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size) {
-    GC9A01_Status s = GC9A01_OK;
-    GC9A01_Hal *hal = panel->hal;
-    GC9A01_HalSpiAsync *async = &hal->spi_async;
-    uint8_t cmd_u8 = (uint8_t)cmd;
-
-    if (async->queue_size == 0) {
-        return GC9A01_ERROR_INVALID_ARGS;   /* queue_size not configured, would deadlock on reap */
-    }
-
-    s = async->spi_acquire_bus(hal->spi_ctx, -1);
-    if (s != GC9A01_OK) { return s; }
-
-    s = GC9A01_DrainAllTransAsync(hal);
-    if (s != GC9A01_OK) { goto release; }
-
-    s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
-    if (s != GC9A01_OK) { goto release; }
-
-    if (cmd_u8) {
-        s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
-        if (s != GC9A01_OK) { goto release; }
-        s = async->spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
-        if (s != GC9A01_OK) { goto release; }
-    }
-
-    if (color != NULL && color_size > 0) {
-        s = hal->gpio_write(hal->DC, hal->flags.dc_param_level);
-        if (s != GC9A01_OK) { goto release; }
-
-        while (color_size > 0) {
-            /* Backpressure: reap one oldest chunk if the queue is full. */
-            if (async->num_trans_inflight >= async->queue_size) {
-                s = GC9A01_ReapOneTransAsync(hal);
-                if (s != GC9A01_OK) { goto release; }
-            }
-
-            size_t chunk_size = (color_size > hal->spi_trans_max_bytes) ? hal->spi_trans_max_bytes : color_size;
-
-            s = async->spi_transmit_async(hal->spi_ctx, color, chunk_size);
-            if (s != GC9A01_OK) { goto release; }
-            async->num_trans_inflight++;
-
-            color = (const uint8_t *)color + chunk_size;
-            color_size -= chunk_size;
-        }
-    }
-
-release:
-    hal->gpio_write(hal->CS, !(hal->flags.cs_active_level));
-    async->spi_release_bus(hal->spi_ctx);
-    return s;
-}
-
 static GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *param, size_t param_size){
-    if(panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
-        return GC9A01_TransmitParamPolling(panel, cmd, param, param_size);
-    } else if(panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        return GC9A01_TransmitParamAsync(panel, cmd, param, param_size);
-    } else {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
+    return GC9A01_TransmitParamPolling(panel, cmd, param, param_size);
 }
 
-/* Dispatcher: routes to polling or async color transmit based on hal->type. */
+/**
+ * @brief Transmit LCD RGB data
+ * @param[in] panel LCD panel handle.
+ * @param[in] cmd The specific LCD command
+ * @param[in] color Buffer that holds the RGB color data
+ * @param[in] color_size Size of `color` in memory, in bytes
+ * @return    `GC9A01_OK` on success, GC9A01_ERROR_INVALID_ARGS if parameter is invalid.
+ */
 static GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size) {
-    if (panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
-        return GC9A01_TransmitColorPolling(panel, cmd, color, color_size);
-    } else if (panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        return GC9A01_TransmitColorAsync(panel, cmd, color, color_size);
-    } else {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
+    return GC9A01_TransmitColorPolling(panel, cmd, color, color_size);
 }
 
 
@@ -547,35 +425,26 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
 /* ===================== LAYER 3: APPLICATION ===================== */
 
 GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
-    hal->gpio_reset                           = NULL;
-    hal->gpio_write                           = NULL;
-    hal->delay_ms                             = NULL;
-    hal->BKL.ctx                              = NULL;
-    hal->DC.ctx                               = NULL;
-    hal->RST.ctx                              = NULL;
-    hal->CS.ctx                               = NULL;
-    hal->BKL.pin                              = -1;
-    hal->DC.pin                               = -1;
-    hal->RST.pin                              = -1;
-    hal->CS.pin                               = -1;
-    hal->flags.dc_cmd_level                   = 1;
-    hal->flags.dc_param_level                 = 1;
-    hal->flags.rst_level                      = 0;
-    hal->flags.cs_active_level                = 0;
-    hal->type                                 = GC9A01_SPI_TRANSMIT_TYPE_POLLING;
-    hal->spi_trans_max_bytes                  = 0;
-    hal->spi_ctx                              = NULL;
-    hal->spi_polling.spi_transmit             = NULL;
-    hal->spi_polling.spi_acquire_bus          = NULL;
-    hal->spi_polling.spi_release_bus          = NULL;
-    hal->spi_async.num_trans_inflight         = 0;
-    hal->spi_async.queue_size                 = 0;
-    hal->spi_async.spi_transmit               = NULL;
-    hal->spi_async.spi_transmit_async         = NULL;
-    hal->spi_async.spi_acquire_bus            = NULL;
-    hal->spi_async.spi_release_bus            = NULL;
-    hal->spi_async.spi_get_trans_result       = NULL;
-    hal->spi_async.register_spi_trans_done_cb = NULL;
+    hal->gpio_reset                  = NULL;
+    hal->gpio_write                  = NULL;
+    hal->delay_ms                    = NULL;
+    hal->BKL.ctx                     = NULL;
+    hal->DC.ctx                      = NULL;
+    hal->RST.ctx                     = NULL;
+    hal->CS.ctx                      = NULL;
+    hal->BKL.pin                     = -1;
+    hal->DC.pin                      = -1;
+    hal->RST.pin                     = -1;
+    hal->CS.pin                      = -1;
+    hal->flags.dc_cmd_level          = 1;
+    hal->flags.dc_param_level        = 1;
+    hal->flags.rst_level             = 0;
+    hal->flags.cs_active_level       = 0;
+    hal->spi_trans_max_bytes         = 0;
+    hal->spi_ctx                     = NULL;
+    hal->spi_polling.spi_transmit    = NULL;
+    hal->spi_polling.spi_acquire_bus = NULL;
+    hal->spi_polling.spi_release_bus = NULL;
     return GC9A01_OK;
 }
 
@@ -664,10 +533,6 @@ GC9A01_Status GC9A01_HalSetDelayMs(GC9A01_Hal *hal, GC9A01_DelayMs delay_ms) {
     return GC9A01_OK;
 }
 
-void GC9A01_HalSetTransmitType(GC9A01_Hal *hal, GC9A01_SpiTransmitType type) {
-    hal->type = type;
-}
-
 GC9A01_Status GC9A01_HalSetSpiTransMaxBytes(GC9A01_Hal *hal, size_t spi_trans_max_bytes) {
     hal->spi_trans_max_bytes = spi_trans_max_bytes;
     return GC9A01_OK;
@@ -682,21 +547,7 @@ GC9A01_Status GC9A01_HalSetSpiTransmit(GC9A01_Hal *hal, GC9A01_SpiTransmit spi_t
     if(!spi_transmit) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
-    if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
-        hal->spi_polling.spi_transmit = spi_transmit;
-    } else if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        hal->spi_async.spi_transmit = spi_transmit;
-    } else {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    return GC9A01_OK;
-}
-
-GC9A01_Status GC9A01_HalSetSpiTransmitAsync(GC9A01_Hal *hal, GC9A01_SpiTransmitAsync spi_transmit_async) {
-    if(!spi_transmit_async || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    hal->spi_async.spi_transmit_async = spi_transmit_async;
+    hal->spi_polling.spi_transmit = spi_transmit;
     return GC9A01_OK;
 }
 
@@ -704,13 +555,7 @@ GC9A01_Status GC9A01_HalSetSpiAcquireBus(GC9A01_Hal *hal, GC9A01_SpiAcquireBus s
     if(!spi_acquire_bus) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
-    if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
-        hal->spi_polling.spi_acquire_bus = spi_acquire_bus;
-    } else if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        hal->spi_async.spi_acquire_bus = spi_acquire_bus;
-    } else {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
+    hal->spi_polling.spi_acquire_bus = spi_acquire_bus;
     return GC9A01_OK;
 }
 
@@ -718,36 +563,6 @@ GC9A01_Status GC9A01_HalSetSpiReleaseBus(GC9A01_Hal *hal, GC9A01_SpiReleaseBus s
     if(!spi_release_bus) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
-    if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
-        hal->spi_polling.spi_release_bus = spi_release_bus;
-    } else if(hal->type == GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        hal->spi_async.spi_release_bus = spi_release_bus;
-    } else {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    return GC9A01_OK;
-}
-
-GC9A01_Status GC9A01_HalSetQueueSize(GC9A01_Hal *hal, size_t queue_size) {
-    if(hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC || queue_size == 0) {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    hal->spi_async.queue_size = queue_size;
-    return GC9A01_OK;
-}
-
-GC9A01_Status GC9A01_HalSetSpiGetTransResult(GC9A01_Hal *hal, GC9A01_SpiGetTransResult spi_get_trans_result) {
-    if(!spi_get_trans_result || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    hal->spi_async.spi_get_trans_result = spi_get_trans_result;
-    return GC9A01_OK;
-}
-
-GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb register_spi_trans_done_cb) {
-    if(!register_spi_trans_done_cb || hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
-        return GC9A01_ERROR_INVALID_ARGS;
-    }
-    hal->spi_async.register_spi_trans_done_cb = register_spi_trans_done_cb;
+    hal->spi_polling.spi_release_bus = spi_release_bus;
     return GC9A01_OK;
 }
