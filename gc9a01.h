@@ -45,7 +45,7 @@ extern "C"
     GC9A01_Status GC9A01_SetGap                 (GC9A01_Panel *panel, int x_gap, int y_gap);
     GC9A01_Status GC9A01_InvertColor            (GC9A01_Panel *panel, bool invert_color_data);
     GC9A01_Status GC9A01_DispOnOff              (GC9A01_Panel *panel, bool on_off);
-    GC9A01_Status GC9A01_BacklightOnOff         (GC9A01_Panel *panel, uint8_t level);
+    GC9A01_Status GC9A01_BacklightOnOff         (GC9A01_Panel *panel, bool on_off);
     GC9A01_Status GC9A01_DispSleep              (GC9A01_Panel *panel, bool sleep);
 
 #ifdef __cplusplus
