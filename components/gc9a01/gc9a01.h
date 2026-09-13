@@ -19,7 +19,8 @@ extern "C"
         void            *ctx;       /**<! User context. */
     } GC9A01_Panel;
 
-    /* LAYER 3: APPLICATION */
+    /* ===================== LAYER 3: APPLICATION ===================== */
+
     GC9A01_Status GC9A01_CreatePanel                 (GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Config *config, void *ctx);
 
     GC9A01_Status GC9A01_CreateDefaultHal            (GC9A01_Hal *hal);
@@ -38,7 +39,7 @@ extern "C"
     GC9A01_Status GC9A01_HalSetSpiGetTransResult     (GC9A01_Hal *hal, GC9A01_SpiGetTransResult spi_get_trans_result);
     GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb register_spi_trans_done_cb);
 
-    /* LAYER 2: PANEL */
+    /* ===================== LAYER 2: PANEL ===================== */
 
     GC9A01_Status GC9A01_Reset                       (GC9A01_Panel *panel);
     GC9A01_Status GC9A01_Init                        (GC9A01_Panel *panel);
@@ -49,6 +50,7 @@ extern "C"
     GC9A01_Status GC9A01_SetGap                      (GC9A01_Panel *panel, int x_gap, int y_gap);
     GC9A01_Status GC9A01_InvertColor                 (GC9A01_Panel *panel, bool invert_color_data);
     GC9A01_Status GC9A01_DispOnOff                   (GC9A01_Panel *panel, bool on_off);
+    GC9A01_Status GC9A01_BacklightOnOff              (GC9A01_Panel *panel, uint8_t level);
     GC9A01_Status GC9A01_DispSleep                   (GC9A01_Panel *panel, bool sleep);
 
 #ifdef __cplusplus

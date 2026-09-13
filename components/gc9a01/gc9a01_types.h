@@ -60,6 +60,7 @@ typedef struct {
     uint32_t dc_param_level : 1;  /* DC pin level that selects "data/param" mode */
     uint32_t cs_active_level: 1;  /* CS pin level considered "active" (chip selected) */
     uint32_t rst_level      : 1;  /* RST pin level that triggers reset */
+    uint32_t bkl_on_level   : 1;  /* BKL pin level that backlight on */
 } GC9A01_Flags;
 
 /** @brief Internal driver state, cached to avoid unnecessary register writes. */
@@ -117,7 +118,7 @@ typedef struct {
 
 /** @brief Top-level HAL injected into the driver. */
 typedef struct {
-    GC9A01_Gpio             BLK;                    /* backlight control pin */
+    GC9A01_Gpio             BKL;                    /* backlight control pin */
     GC9A01_Gpio             DC;                     /* data/command select pin */
     GC9A01_Gpio             RST;                    /* hardware reset pin */
     GC9A01_Gpio             CS;                     /* chip select pin */

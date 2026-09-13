@@ -1,7 +1,7 @@
 #include "gc9a01.h"
 #include "gc9a01_cmds.h"
 
-/** LAYER 1: IO */
+/* ======================== LAYER 1: IO ======================== */
 
 #define GC9A01_CMD_BIT_WIDTH    8
 #define GC9A01_CMD_BYTE_WIDTH   (GC9A01_CMD_BIT_WIDTH/8)
@@ -120,7 +120,7 @@ static GC9A01_Status GC9A01_TransmitParamAsync(GC9A01_Panel *panel, GC9A01_LcdCm
     uint8_t cmd_u8 = (uint8_t)cmd;
 
     s = async->spi_acquire_bus(hal->spi_ctx, -1);
-    if (s != GC9A01_OK) { goto release; }
+    if (s != GC9A01_OK) { return s; }
 
     /* Must be empty before any sync transfer touches the bus. */
     s = GC9A01_DrainAllTransAsync(hal);
@@ -160,8 +160,12 @@ static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCm
     GC9A01_HalSpiAsync *async = &hal->spi_async;
     uint8_t cmd_u8 = (uint8_t)cmd;
 
+    if (async->queue_size == 0) {
+        return GC9A01_ERROR_INVALID_ARGS;   /* queue_size not configured, would deadlock on reap */
+    }
+
     s = async->spi_acquire_bus(hal->spi_ctx, -1);
-    if (s != GC9A01_OK) { goto release; }
+    if (s != GC9A01_OK) { return s; }
 
     s = GC9A01_DrainAllTransAsync(hal);
     if (s != GC9A01_OK) { goto release; }
@@ -214,7 +218,7 @@ static GC9A01_Status GC9A01_TransmitParam(GC9A01_Panel *panel, GC9A01_LcdCmds cm
     }
 }
 
-/* Dispatcher pair for GC9A01_TransmitParam, symmetric with your existing one */
+/* Dispatcher: routes to polling or async color transmit based on hal->type. */
 static GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_LcdCmds cmd, const void *color, size_t color_size) {
     if (panel->hal->type == GC9A01_SPI_TRANSMIT_TYPE_POLLING) {
         return GC9A01_TransmitColorPolling(panel, cmd, color, color_size);
@@ -228,12 +232,12 @@ static GC9A01_Status GC9A01_TransmitColor(GC9A01_Panel *panel, GC9A01_LcdCmds cm
 
 
 
-/* LAYER 2: PANEL */
+/* ======================= LAYER 2: PANEL ======================= */
 
 typedef struct {
     int cmd;
     const void *data;
-    size_t data_bytes;
+    size_t data_size;
     unsigned int delay_ms;
 } GC9A01_InitCmd;
 
@@ -347,7 +351,7 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
             break;
         }
 
-        s = GC9A01_TransmitParam(panel, init_cmds_default[i].cmd, init_cmds_default[i].data, init_cmds_default[i].data_bytes);
+        s = GC9A01_TransmitParam(panel, init_cmds_default[i].cmd, init_cmds_default[i].data, init_cmds_default[i].data_size);
         if(s != GC9A01_OK) { return s; }
         hal->delay_ms(init_cmds_default[i].delay_ms);
     }
@@ -501,6 +505,19 @@ GC9A01_Status GC9A01_DispOnOff(GC9A01_Panel *panel, bool on_off) {
 }
 
 /**
+ * @brief Turn the backlight on or off.
+ * @param[in] panel LCD panel handle.
+ * @param[in] on_off True to turn backlight on, False to turn off.
+ * @return `GC9A01_OK` on success.
+ */
+GC9A01_Status GC9A01_BacklightOnOff(GC9A01_Panel *panel, uint8_t level) {
+    if(level != 0 && level != 1) {
+        return GC9A01_ERROR_INVALID_ARGS;
+    }
+    return panel->hal->gpio_write(panel->hal->BKL, level);
+}
+
+/**
  * @brief Enter or exit sleep mode.
  * @param[in] panel LCD panel handle.
  * @param[in] sleep True to enter sleep mode, False to wake up.
@@ -527,51 +544,17 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
 }
 
 
-/* LAYER 3: APPLICATION */
-
-// static GC9A01_Status GC9A01_CreateDefaultPanel(GC9A01_Panel *panel) {
-//     panel->hal->gpio_reset                           = NULL;
-//     panel->hal->gpio_write                           = NULL;
-//     panel->hal->delay_ms                             = NULL;
-//     panel->hal->BLK.ctx                              = NULL;
-//     panel->hal->DC.ctx                               = NULL;
-//     panel->hal->RST.ctx                              = NULL;
-//     panel->hal->CS.ctx                               = NULL;
-//     panel->hal->BLK.pin                              = -1;
-//     panel->hal->DC.pin                               = -1;
-//     panel->hal->RST.pin                              = -1;
-//     panel->hal->CS.pin                               = -1;
-//     panel->hal->flags.dc_cmd_level                   = 1;
-//     panel->hal->flags.dc_param_level                 = 1;
-//     panel->hal->flags.rst_level                      = 0;
-//     panel->hal->flags.cs_active_level                = 0;
-//     panel->hal->type                                 = GC9A01_SPI_TRANSMIT_TYPE_POLLING;
-//     panel->hal->spi_trans_max_bytes                  = 0;
-//     panel->hal->spi_ctx                              = NULL;
-//     panel->hal->spi_polling.spi_transmit             = NULL;
-//     panel->hal->spi_polling.spi_acquire_bus          = NULL;
-//     panel->hal->spi_polling.spi_release_bus          = NULL;
-//     panel->hal->spi_async.num_trans_inflight         = 0;
-//     panel->hal->spi_async.queue_size                 = 0;
-//     panel->hal->spi_async.spi_transmit               = NULL;
-//     panel->hal->spi_async.spi_transmit_async         = NULL;
-//     panel->hal->spi_async.spi_acquire_bus            = NULL;
-//     panel->hal->spi_async.spi_release_bus            = NULL;
-//     panel->hal->spi_async.spi_get_trans_result       = NULL;
-//     panel->hal->spi_async.register_spi_trans_done_cb = NULL;
-
-//     return GC9A01_OK;
-// }
+/* ===================== LAYER 3: APPLICATION ===================== */
 
 GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
     hal->gpio_reset                           = NULL;
     hal->gpio_write                           = NULL;
     hal->delay_ms                             = NULL;
-    hal->BLK.ctx                              = NULL;
+    hal->BKL.ctx                              = NULL;
     hal->DC.ctx                               = NULL;
     hal->RST.ctx                              = NULL;
     hal->CS.ctx                               = NULL;
-    hal->BLK.pin                              = -1;
+    hal->BKL.pin                              = -1;
     hal->DC.pin                               = -1;
     hal->RST.pin                              = -1;
     hal->CS.pin                               = -1;
@@ -642,14 +625,14 @@ GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Co
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalSetGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BLK) {
+GC9A01_Status GC9A01_HalSetGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BKL) {
     if(!hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     hal->DC  = DC;
     hal->RST = RST;
     hal->CS  = CS;
-    hal->BLK = BLK;
+    hal->BKL = BKL;
     return GC9A01_OK;
 }
 
@@ -746,7 +729,7 @@ GC9A01_Status GC9A01_HalSetSpiReleaseBus(GC9A01_Hal *hal, GC9A01_SpiReleaseBus s
 }
 
 GC9A01_Status GC9A01_HalSetQueueSize(GC9A01_Hal *hal, size_t queue_size) {
-    if(hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
+    if(hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC || queue_size == 0) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     hal->spi_async.queue_size = queue_size;
