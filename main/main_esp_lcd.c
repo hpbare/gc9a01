@@ -99,6 +99,7 @@ static int8_t display_init_lcd(void){
     /* Start sequence */
     if(esp_lcd_panel_reset(panel_handle) != ESP_OK)  { return -1; }
     if(esp_lcd_panel_init(panel_handle) != ESP_OK)   { return -1; }
+    if(esp_lcd_panel_invert_color(panel_handle, true) != ESP_OK) { return -1; }
     if(esp_lcd_panel_mirror(panel_handle, true, false) != ESP_OK) { return -1; }
     if(esp_lcd_panel_disp_on_off(panel_handle, true) != ESP_OK) { return -1; }
     if(gpio_set_level(GC9A01_EXAMPLE_GPIO_BL, GC9A01_BK_LIGHT_ON_LEVEL) != ESP_OK) { return -1; }
@@ -162,6 +163,76 @@ static void clock_tick_cb(lv_timer_t *timer)
     char buf[16]; /* "HH:MM:SS\0" */
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d", fake_time.h, fake_time.m, fake_time.s);
     lv_label_set_text(time_label, buf);
+}
+
+/* ---- Toggle switch demo ---- */
+
+static void toggle_switch_event_cb(lv_event_t *e)
+{
+    lv_obj_t *sw = lv_event_get_target(e);
+    bool is_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+
+    lv_obj_t *scr = lv_obj_get_parent(sw);
+    lv_obj_set_style_bg_color(scr, is_on ? lv_color_white() : lv_color_black(), 0);
+
+    lv_obj_t *status_label = (lv_obj_t *)lv_event_get_user_data(e);
+    lv_label_set_text(status_label, is_on ? "ON" : "OFF");
+    lv_obj_set_style_text_color(status_label, is_on ? lv_color_black() : lv_color_white(), 0);
+}
+
+static void lvgl_demo_toggle_switch_ui(lv_display_t *disp)
+{
+    lv_obj_t *scr = lv_display_get_screen_active(disp);
+    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+
+    lv_obj_t *status_label = lv_label_create(scr);
+    lv_obj_set_style_text_font(status_label, &lv_font_montserrat_36, 0);
+    lv_obj_set_style_text_color(status_label, lv_color_white(), 0);
+    lv_label_set_text(status_label, "OFF");
+    lv_obj_align(status_label, LV_ALIGN_CENTER, 0, -30);
+
+    lv_obj_t *sw = lv_switch_create(scr);
+    lv_obj_align(sw, LV_ALIGN_CENTER, 0, 30);
+    /* status_label passed as user_data so the callback can update it directly,
+     * avoiding a second static global like time_label above */
+    lv_obj_add_event_cb(sw, toggle_switch_event_cb, LV_EVENT_VALUE_CHANGED, status_label);
+}
+
+/* ---- Color cycle demo (LVGL version of the raw fill_solid test loop) ---- */
+
+static lv_obj_t *color_rect = NULL;
+
+static const lv_color_t color_cycle[] = {
+    LV_COLOR_MAKE(0xFF, 0x00, 0x00), /* red */
+    LV_COLOR_MAKE(0x00, 0xFF, 0x00), /* green */
+    LV_COLOR_MAKE(0x00, 0x00, 0xFF), /* blue */
+    LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), /* white */
+};
+#define COLOR_CYCLE_COUNT (sizeof(color_cycle) / sizeof(color_cycle[0]))
+
+static void color_cycle_tick_cb(lv_timer_t *timer)
+{
+    static uint8_t idx = 0;
+    lv_obj_set_style_bg_color(color_rect, color_cycle[idx], 0);
+    idx++;
+    if (idx == COLOR_CYCLE_COUNT) { idx = 0; }
+}
+
+static void lvgl_demo_color_toggle_ui(lv_display_t *disp)
+{
+    lv_obj_t *scr = lv_display_get_screen_active(disp);
+
+    color_rect = lv_obj_create(scr);
+    lv_obj_remove_style_all(color_rect); /* strip default border/padding/scrollbar */
+    lv_obj_set_size(color_rect, lv_display_get_horizontal_resolution(disp),
+                                 lv_display_get_vertical_resolution(disp));
+    lv_obj_set_pos(color_rect, 0, 0);
+    lv_obj_set_style_bg_opa(color_rect, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(color_rect, color_cycle[0], 0);
+
+    /* 500ms period, matches vTaskDelay(pdMS_TO_TICKS(500)) in the original loop */
+    lv_timer_create(color_cycle_tick_cb, 500, NULL);
 }
 
 static void lvgl_demo_text_ui(lv_display_t *disp)
@@ -254,6 +325,6 @@ void app_main(void)
     xTaskCreate(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
 
     _lock_acquire(&lvgl_api_lock);
-    lvgl_demo_clock_ui(display);
+    lvgl_demo_color_toggle_ui(display);
     _lock_release(&lvgl_api_lock);
 }
