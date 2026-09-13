@@ -149,6 +149,16 @@ release:
     return s;
 }
 
+static void GC9A01_OnTransDone(void *trans_tag) {
+    GC9A01_Panel *panel = (GC9A01_Panel *)trans_tag;
+    if (!panel) {
+        return;
+    }
+    if (panel->state.on_color_trans_done) {
+        ((GC9A01_ColorTransDoneCb)panel->state.on_color_trans_done)(panel, panel->state.trans_done_user_ctx);
+    }
+}
+
 /**
  * @brief Transmit LCD RGB color data async. Command still sent sync/polling
  *        (same reasoning as GC9A01_TransmitParamAsync); color chunks are
@@ -193,7 +203,9 @@ static GC9A01_Status GC9A01_TransmitColorAsync(GC9A01_Panel *panel, GC9A01_LcdCm
 
             size_t chunk_size = (color_size > hal->spi_trans_max_bytes) ? hal->spi_trans_max_bytes : color_size;
 
-            s = async->spi_transmit_async(hal->spi_ctx, color, chunk_size);
+            void *trans_tag = (chunk_size == color_size) ? (void *)panel : NULL;
+
+            s = async->spi_transmit_async(hal->spi_ctx, color, chunk_size, trans_tag);
             if (s != GC9A01_OK) { goto release; }
             async->num_trans_inflight++;
 
@@ -590,6 +602,8 @@ GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Co
     panel->ctx              = ctx;
     panel->state.madctl_val = 0x00;
     panel->state.colmod_val = 0x00;
+    panel->state.on_color_trans_done = NULL;
+    panel->state.trans_done_user_ctx = NULL;
 
     panel->hal->gpio_reset(panel->hal->RST);
 
@@ -749,5 +763,24 @@ GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiReg
         return GC9A01_ERROR_INVALID_ARGS;
     }
     hal->spi_async.register_spi_trans_done_cb = register_spi_trans_done_cb;
+    return GC9A01_OK;
+}
+
+GC9A01_Status GC9A01_RegisterEventCallbacks(GC9A01_Panel *panel,
+                                             const GC9A01_EventCallbacks *cbs, void *user_ctx) {
+    if (!panel || !panel->hal || !cbs) {
+        return GC9A01_ERROR_INVALID_ARGS;
+    }
+    if (panel->hal->type != GC9A01_SPI_TRANSMIT_TYPE_ASYNC) {
+        return GC9A01_ERROR_NOT_SUPPORTED;
+    }
+    if (!panel->hal->spi_async.register_spi_trans_done_cb) {
+        return GC9A01_ERROR_INVALID_ARGS;
+    }
+
+    panel->state.on_color_trans_done = (void *)cbs->on_color_trans_done;
+    panel->state.trans_done_user_ctx = user_ctx;
+
+    panel->hal->spi_async.register_spi_trans_done_cb(GC9A01_OnTransDone);
     return GC9A01_OK;
 }

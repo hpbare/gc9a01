@@ -18,6 +18,9 @@ typedef enum {
     GC9A01_ERROR_GPIO          = -4
 } GC9A01_Status;
 
+// /* Forward declare, panel struct is defined in gc9a01.h */
+// typedef struct GC9A01_Panel GC9A01_Panel;
+
 /** @brief Generic GPIO handle. */
 typedef struct {
     void *ctx;      /**<! Platform specific (e.g. GPIO port struct). */
@@ -37,7 +40,7 @@ typedef GC9A01_Status (*GC9A01_GpioReset)(GC9A01_Gpio gpio);
 typedef GC9A01_Status (*GC9A01_SpiTransmit)(void *ctx, const void *tx, size_t len);
 
 /** @brief Async SPI transmit. */
-typedef GC9A01_Status (*GC9A01_SpiTransmitAsync)(void *ctx, const void *tx, size_t len);
+typedef GC9A01_Status (*GC9A01_SpiTransmitAsync)(void *ctx, const void *tx, size_t len, void *trans_tag);
 
 /** @brief Acquire exclusive access to the shared SPI bus (timeout in ms, -1 = wait forever). */
 typedef GC9A01_Status (*GC9A01_SpiAcquireBus)(void *ctx, int32_t timeout_ms);
@@ -49,10 +52,10 @@ typedef GC9A01_Status (*GC9A01_SpiReleaseBus)(void *ctx);
 typedef GC9A01_Status (*GC9A01_SpiGetTransResult)(void *ctx, int32_t ms);
 
 /** @brief Called by the HAL when an async SPI transaction completes. */
-typedef void          (*GC9A01_TransDoneCb)(void *ctx);
+typedef void          (*GC9A01_TransDoneCb)(void *trans_tag);
 
 /** @brief Registers `callback_function` to be invoked (with `args`) on transaction completion. */
-typedef void          (*GC9A01_SpiRegisterTransDoneCb)(GC9A01_TransDoneCb callback_function, void *args); 
+typedef void          (*GC9A01_SpiRegisterTransDoneCb)(GC9A01_TransDoneCb callback_function); 
 
 /** @brief Active-level/polarity configuration for control pins. */
 typedef struct {
@@ -67,6 +70,8 @@ typedef struct {
 typedef struct {
     uint8_t madctl_val;     /* save current value of MADCTL register */
     uint8_t colmod_val;     /* save current value of COLMOD register */
+    void   *on_color_trans_done;
+    void   *trans_done_user_ctx;
 } GC9A01_Internal;
 
 /** @brief RGB data endian. */

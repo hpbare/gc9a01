@@ -39,6 +39,15 @@ extern "C"
     GC9A01_Status GC9A01_HalSetSpiGetTransResult     (GC9A01_Hal *hal, GC9A01_SpiGetTransResult spi_get_trans_result);
     GC9A01_Status GC9A01_HalSetSpiRegisterTransDoneCb(GC9A01_Hal *hal, GC9A01_SpiRegisterTransDoneCb register_spi_trans_done_cb);
 
+/** @brief Invoked when the last chunk of one DrawBitmap color transfer finishes. */
+    typedef void (*GC9A01_ColorTransDoneCb)(GC9A01_Panel *panel, void *user_ctx);
+
+    typedef struct {
+        GC9A01_ColorTransDoneCb on_color_trans_done;
+    } GC9A01_EventCallbacks;
+
+    GC9A01_Status GC9A01_RegisterEventCallbacks(GC9A01_Panel *panel, const GC9A01_EventCallbacks *cbs, void *user_ctx);
+
     /* ===================== LAYER 2: PANEL ===================== */
 
     GC9A01_Status GC9A01_Reset                       (GC9A01_Panel *panel);
