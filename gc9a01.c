@@ -388,11 +388,12 @@ GC9A01_Status GC9A01_DispOnOff(GC9A01_Panel *panel, bool on_off) {
  * @param[in] on_off True to turn backlight on, False to turn off.
  * @return `GC9A01_OK` on success.
  */
-GC9A01_Status GC9A01_BacklightOnOff(GC9A01_Panel *panel, uint8_t level) {
-    if(level != 0 && level != 1) {
-        return GC9A01_ERROR_INVALID_ARGS;
+GC9A01_Status GC9A01_BacklightOnOff(GC9A01_Panel *panel, bool on_off) {
+    if(on_off) {
+        return panel->hal->gpio_write(panel->hal->BKL, panel->hal->flags.bkl_on_level);
+    } else {
+        return panel->hal->gpio_write(panel->hal->BKL, !(panel->hal->flags.bkl_on_level));
     }
-    return panel->hal->gpio_write(panel->hal->BKL, level);
 }
 
 /**
