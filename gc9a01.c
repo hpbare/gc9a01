@@ -290,7 +290,7 @@ GC9A01_Status GC9A01_DrawBitmap(GC9A01_Panel *panel, int x_start, int y_start, i
     s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_RASET, raset_param, sizeof(raset_param)/sizeof(uint8_t));
     if(s != GC9A01_OK) { return s; }
 
-    size_t color_size = ((x_end - x_start) * (y_end - y_start) * panel->config->fb_bits_per_pixels)/8;
+    size_t color_size = ((x_end - x_start) * (y_end - y_start) * panel->state.fb_bits_per_pixels)/8;
     return GC9A01_TransmitColor(panel, GC9A01_LCD_CMD_RAMWR, color_data, color_size);
 }
 
@@ -479,13 +479,13 @@ GC9A01_Status GC9A01_CreatePanel(GC9A01_Panel *panel, GC9A01_Hal *hal, GC9A01_Co
 
     switch(panel->config->bits_per_pixel) {
         case 16:
-            panel->state.colmod_val           = 0x55;
-            panel->config->fb_bits_per_pixels = 16;
+            panel->state.colmod_val         = 0x55;
+            panel->state.fb_bits_per_pixels = 16;
             break;
 
         case 18:
-            panel->state.colmod_val           = 0x66;
-            panel->config->fb_bits_per_pixels = 24;
+            panel->state.colmod_val         = 0x66;
+            panel->state.fb_bits_per_pixels = 24;
             break;
 
         default:
