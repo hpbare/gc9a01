@@ -22,7 +22,7 @@ static GC9A01_Status GC9A01_TransmitParamPolling(GC9A01_Panel *panel, GC9A01_Lcd
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
     if(s != GC9A01_OK) { goto release; }
 
-    if(cmd_u8) {
+    if(cmd != GC9A01_LCD_CMD_NONE) {
         s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
         if(s != GC9A01_OK) { goto release; }
         s = hal->spi_polling.spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
@@ -54,10 +54,12 @@ static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_Lcd
     GC9A01_Hal *hal = panel->hal;
     uint8_t cmd_u8 = (uint8_t)cmd;
 
+    size_t max_chunk = (hal->spi_trans_max_bytes > 0) ? hal->spi_trans_max_bytes : color_size;
+
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
     if(s != GC9A01_OK) { goto release; }
 
-    if(cmd_u8) {
+    if(cmd != GC9A01_LCD_CMD_NONE) {
         s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
         if(s != GC9A01_OK) { goto release; }
         s = hal->spi_polling.spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
@@ -69,7 +71,7 @@ static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_Lcd
         if(s != GC9A01_OK) { goto release; }
 
         while(color_size > 0){
-            size_t chunk_size = (color_size > hal->spi_trans_max_bytes) ? hal->spi_trans_max_bytes : color_size;
+            size_t chunk_size = (color_size > max_chunk) ? max_chunk : color_size;
             s = hal->spi_polling.spi_transmit(hal->spi_ctx, color, chunk_size);
             if(s != GC9A01_OK) { goto release; }
 
