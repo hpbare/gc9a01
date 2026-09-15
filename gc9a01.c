@@ -22,7 +22,7 @@ static GC9A01_Status GC9A01_TransmitParamPolling(GC9A01_Panel *panel, GC9A01_Lcd
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
     if(s != GC9A01_OK) { goto release; }
 
-    if(cmd_u8) {
+    if(cmd != GC9A01_LCD_CMD_NONE) {
         s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
         if(s != GC9A01_OK) { goto release; }
         s = hal->spi_polling.spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
@@ -54,10 +54,12 @@ static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_Lcd
     GC9A01_Hal *hal = panel->hal;
     uint8_t cmd_u8 = (uint8_t)cmd;
 
+    size_t max_chunk = (hal->spi_trans_max_bytes > 0) ? hal->spi_trans_max_bytes : color_size;
+
     s = hal->gpio_write(hal->CS, hal->flags.cs_active_level);
     if(s != GC9A01_OK) { goto release; }
 
-    if(cmd_u8) {
+    if(cmd != GC9A01_LCD_CMD_NONE) {
         s = hal->gpio_write(hal->DC, hal->flags.dc_cmd_level);
         if(s != GC9A01_OK) { goto release; }
         s = hal->spi_polling.spi_transmit(hal->spi_ctx, &cmd_u8, GC9A01_CMD_BYTE_WIDTH);
@@ -69,7 +71,7 @@ static GC9A01_Status GC9A01_TransmitColorPolling(GC9A01_Panel *panel, GC9A01_Lcd
         if(s != GC9A01_OK) { goto release; }
 
         while(color_size > 0){
-            size_t chunk_size = (color_size > hal->spi_trans_max_bytes) ? hal->spi_trans_max_bytes : color_size;
+            size_t chunk_size = (color_size > max_chunk) ? max_chunk : color_size;
             s = hal->spi_polling.spi_transmit(hal->spi_ctx, color, chunk_size);
             if(s != GC9A01_OK) { goto release; }
 
@@ -205,7 +207,7 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPIN, NULL, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPOUT, NULL, 0);
     if(s != GC9A01_OK) { return s; }
     hal->delay_ms(100);
 
@@ -262,7 +264,7 @@ GC9A01_Status GC9A01_Destroy(GC9A01_Panel *panel) {
  * @return `GC9A01_OK` on success
  */
 GC9A01_Status GC9A01_DrawBitmap(GC9A01_Panel *panel, int x_start, int y_start, int x_end, int y_end, const void *color_data) {
-    if((x_start >= x_end) || (y_start >= y_end)) {
+    if((x_start >= x_end) || (y_start >= y_end) || color_data == NULL) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     GC9A01_Status s = GC9A01_OK;
@@ -414,8 +416,10 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
     GC9A01_Status s = GC9A01_OK;
     if(sleep) {
         s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPIN, NULL, 0);
+        if(s != GC9A01_OK) { return s; }
     } else {
         s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPOUT, NULL, 0);
+        if(s != GC9A01_OK) { return s; }
     }
     panel->hal->delay_ms(120);
 
@@ -437,7 +441,7 @@ GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
     hal->DC.pin                      = -1;
     hal->RST.pin                     = -1;
     hal->CS.pin                      = -1;
-    hal->flags.dc_cmd_level          = 1;
+    hal->flags.dc_cmd_level          = 0;
     hal->flags.dc_param_level        = 1;
     hal->flags.rst_level             = 0;
     hal->flags.cs_active_level       = 0;
@@ -507,7 +511,7 @@ GC9A01_Status GC9A01_HalSetGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level) {
+GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level, bool bkl_on_level) {
     if(!hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -515,6 +519,7 @@ GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool d
     hal->flags.dc_param_level  = dc_param_level;
     hal->flags.cs_active_level = cs_active_level;
     hal->flags.rst_level       = rst_level;
+    hal->flags.bkl_on_level    = bkl_on_level;
     return GC9A01_OK;
 }
 
