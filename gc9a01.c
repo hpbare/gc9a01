@@ -439,7 +439,7 @@ GC9A01_Status GC9A01_CreateDefaultHal(GC9A01_Hal *hal) {
     hal->DC.pin                      = -1;
     hal->RST.pin                     = -1;
     hal->CS.pin                      = -1;
-    hal->flags.dc_cmd_level          = 1;
+    hal->flags.dc_cmd_level          = 0;
     hal->flags.dc_param_level        = 1;
     hal->flags.rst_level             = 0;
     hal->flags.cs_active_level       = 0;
