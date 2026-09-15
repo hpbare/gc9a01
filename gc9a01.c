@@ -207,7 +207,7 @@ GC9A01_Status GC9A01_Init(GC9A01_Panel *panel) {
     GC9A01_Status s = GC9A01_OK;
     GC9A01_Hal *hal = panel->hal;
 
-    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPIN, NULL, 0);
+    s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPOUT, NULL, 0);
     if(s != GC9A01_OK) { return s; }
     hal->delay_ms(100);
 
@@ -416,8 +416,10 @@ GC9A01_Status GC9A01_DispSleep(GC9A01_Panel *panel, bool sleep) {
     GC9A01_Status s = GC9A01_OK;
     if(sleep) {
         s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPIN, NULL, 0);
+        if(s != GC9A01_OK) { return s; }
     } else {
         s = GC9A01_TransmitParam(panel, GC9A01_LCD_CMD_SLPOUT, NULL, 0);
+        if(s != GC9A01_OK) { return s; }
     }
     panel->hal->delay_ms(120);
 
@@ -509,7 +511,7 @@ GC9A01_Status GC9A01_HalSetGpio(GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST
     return GC9A01_OK;
 }
 
-GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level) {
+GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level, bool bkl_on_level) {
     if(!hal) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
@@ -517,6 +519,7 @@ GC9A01_Status GC9A01_HalSetLogicLevel(GC9A01_Hal *hal, bool dc_cmd_level, bool d
     hal->flags.dc_param_level  = dc_param_level;
     hal->flags.cs_active_level = cs_active_level;
     hal->flags.rst_level       = rst_level;
+    hal->flags.bkl_on_level    = bkl_on_level;
     return GC9A01_OK;
 }
 
