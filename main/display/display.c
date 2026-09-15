@@ -133,7 +133,7 @@ static int8_t display_init_gc9a01(void) {
     GC9A01_CreateDefaultHal(&hal);
     GC9A01_HalSetGpio(&hal, dc, rst, cs, bkl);
     GC9A01_HalSetGpioApis(&hal, gc9a01_gpio_reset, gc9a01_gpio_write);
-    GC9A01_HalSetLogicLevel(&hal, 0, 1, 0, 0);
+    GC9A01_HalSetLogicLevel(&hal, 0, 1, 0, 0, 1);
     GC9A01_HalSetDelayMs(&hal, gc9a01_delay_ms);
     GC9A01_HalSetSpiTransMaxBytes(&hal, gc9a01_max_trans_bytes);
     GC9A01_HalSetSpiCtx(&hal, gc9a01_spi_device_handle); /* passed to SpiTransmit/Acquire/Release */

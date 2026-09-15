@@ -25,7 +25,7 @@ extern "C"
 
     GC9A01_Status GC9A01_CreateDefaultHal       (GC9A01_Hal *hal);
     GC9A01_Status GC9A01_HalSetGpio             (GC9A01_Hal *hal, GC9A01_Gpio DC, GC9A01_Gpio RST, GC9A01_Gpio CS, GC9A01_Gpio BLK);
-    GC9A01_Status GC9A01_HalSetLogicLevel       (GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level);
+    GC9A01_Status GC9A01_HalSetLogicLevel       (GC9A01_Hal *hal, bool dc_cmd_level, bool dc_param_level, bool cs_active_level, bool rst_level, bool bkl_on_level);
     GC9A01_Status GC9A01_HalSetGpioApis         (GC9A01_Hal *hal, GC9A01_GpioReset gpio_reset, GC9A01_GpioWrite gpio_write);
     GC9A01_Status GC9A01_HalSetDelayMs          (GC9A01_Hal *hal, GC9A01_DelayMs delay_ms);
     GC9A01_Status GC9A01_HalSetSpiTransMaxBytes (GC9A01_Hal *hal, size_t spi_trans_max_bytes);

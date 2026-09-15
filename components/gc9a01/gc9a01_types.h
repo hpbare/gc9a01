@@ -53,8 +53,9 @@ typedef struct {
 
 /** @brief Internal driver state, cached to avoid unnecessary register writes. */
 typedef struct {
-    uint8_t madctl_val;     /* save current value of MADCTL register */
-    uint8_t colmod_val;     /* save current value of COLMOD register */
+    uint8_t madctl_val;         /* save current value of MADCTL register */
+    uint8_t colmod_val;         /* save current value of COLMOD register */
+    uint8_t fb_bits_per_pixels; /* bit depth of the source framebuffer. */
 } GC9A01_Internal;
 
 /** @brief RGB data endian. */
@@ -74,7 +75,6 @@ typedef struct {
     uint32_t                bits_per_pixel;     /* bit depth sent to the panel over SPI. */
     int                     x_gap;              /* horizontal offset into panel RAM. */
     int                     y_gap;              /* vertical offset into panel RAM. */
-    uint8_t                 fb_bits_per_pixels; /* bit depth of the source framebuffer. */
     GC9A01_RgbElementOrder  rgb_element_order;
     GC9A01_RgbDataEndian    data_endian;
 } GC9A01_Config;
