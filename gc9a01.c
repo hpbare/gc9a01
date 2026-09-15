@@ -264,7 +264,7 @@ GC9A01_Status GC9A01_Destroy(GC9A01_Panel *panel) {
  * @return `GC9A01_OK` on success
  */
 GC9A01_Status GC9A01_DrawBitmap(GC9A01_Panel *panel, int x_start, int y_start, int x_end, int y_end, const void *color_data) {
-    if((x_start >= x_end) || (y_start >= y_end)) {
+    if((x_start >= x_end) || (y_start >= y_end) || color_data == NULL) {
         return GC9A01_ERROR_INVALID_ARGS;
     }
     GC9A01_Status s = GC9A01_OK;
